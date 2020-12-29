@@ -1,0 +1,6 @@
+# Folders
+.idea/
+venv/
+
+# Settings
+config.py
