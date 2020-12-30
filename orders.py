@@ -1,7 +1,7 @@
 class OrderBook(object):
-    def __init__(self, exchange, market_symbol, asks, bids):
+    def __init__(self, exchange, exchange_market, asks, bids):
         self.exchange = exchange
-        self.market_symbol = market_symbol
+        self.exchange_market = exchange_market
         self.asks = asks
         self.bids = bids
 

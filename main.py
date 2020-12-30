@@ -1,3 +1,5 @@
+from time import sleep
+
 from config import KRAKEN_CONFIG, KUCOIN_CONFIG
 from exchanges import Exchange
 
@@ -5,49 +7,52 @@ EXCHANGE_CONFIGS = {"kraken": KRAKEN_CONFIG, "kucoin": KUCOIN_CONFIG}
 
 
 class Crypton(object):
-    def __init__(self, market_symbol, exchange_configs):
-        self.market_symbol = market_symbol
+
+    _sleep_seconds = 1
+
+    def __init__(self, exchange_configs):
         self.exchange_configs = exchange_configs
 
-    @property
-    def exchanges(self):
+        self.exchanges = self.initiate_exchanges()
+
+    def initiate_exchanges(self):
         return {
             exchange_id: Exchange(exchange_id, exchange_config)
             for exchange_id, exchange_config in self.exchange_configs.items()
         }
 
-    def get_orders(self):
-        order_books = []
+    def fetch_orders(self, market_symbol):
+        order_book_list = []
         for exchange in self.exchanges.values():
             print("Checking", exchange.exchange_id)
 
-            success, order = exchange.get_order(self.market_symbol)
+            exchange_market = exchange.markets[market_symbol]
+            success, order = exchange.get_order(exchange_market)
+
             if success is False:
                 print(exchange.exchange_id, "API Failed. We need to retry all Exchanges")
                 return False, []
 
-            order_books.append(order)
+            order_book_list.append(order)
 
-        return True, order_books
+        return True, order_book_list
 
-    def start(self):
+    def start(self, market_symbol):
         while True:
-            success, order_books = self.get_orders()
+            success, order_book_list = self.fetch_orders(market_symbol)
             if success is False:
+                sleep(self._sleep_seconds)
                 continue
 
-            lowest_ask_order = min(order_books)
-            highest_bid_order = max(order_books)
-
-            if self.verify_profitability(lowest_ask_order, highest_bid_order) is False:
-                print("Order is not profitable")
+            if self.verify_profitability(order_book_list) is False:
+                sleep(self._sleep_seconds)
                 continue
 
             self.initiate_order()
 
-    def verify_profitability(self, lowest_ask_order, highest_bid_order):
-        # WIP
-        print(lowest_ask_order.ask_price, highest_bid_order.bid_price)
+    def verify_profitability(self, order_book_list):
+        lowest_ask_order = min(order_book_list)
+        highest_bid_order = max(order_book_list)
         return True
 
     def initiate_order(self):
@@ -55,4 +60,5 @@ class Crypton(object):
         print('Ordering')
 
 
-#crypton = Crypton("BTC/USDT", EXCHANGE_CONFIGS)
+#crypton = Crypton(EXCHANGE_CONFIGS)
+#crypton.start("BTC/USDT")
