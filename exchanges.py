@@ -40,18 +40,6 @@ class Exchange(object):
             return response["info"]["data"]
         return {}
 
-    @handle_bad_requests(max_retries=1)
-    def get_order_book(self, exchange_market):
-        open_orders = self.client.fetch_order_book(symbol=exchange_market.symbol)
-        return open_orders["asks"], open_orders["bids"]
-
-    def get_order(self, exchange_market):
-        try:
-            asks, bids = self.get_order_book(exchange_market)
-        except Exception:
-            return False, None
-        return True, OrderBook(self, exchange_market, asks, bids)
-
 
 class ExchangeMarket(object):
     def __init__(self, exchange, market_symbol):
@@ -71,17 +59,28 @@ class ExchangeMarket(object):
         return market_info
 
     @property
-    def fee_as_percentage(self):
-        return self.info.get("percentage", True) is True
+    @handle_bad_requests()
+    def trading_fees(self):
+        try:
+            trading_fees = self.exchange.client.fetch_trading_fees(self.symbol)
+        except ccxt.NotSupported:
+            trading_fees = self.exchange.client.fees.get('trading', {})
+        except ValueError:
+            trading_fees = self.exchange.client.fees.get('trading', {})
+        return trading_fees
 
-    @property
-    def taker(self):
-        if self.fee_as_percentage:
-            return self.info["taker"] * 100.0
-        return self.info["taker"]
+    @handle_bad_requests(max_retries=1)
+    def get_order_book(self):
+        open_orders = self.exchange.client.fetch_order_book(symbol=self.symbol)
+        return open_orders["asks"], open_orders["bids"]
 
-    @property
-    def maker(self):
-        if self.fee_as_percentage:
-            return self.info["maker"] * 100.0
-        return self.info["maker"]
+    def get_order(self):
+        try:
+            asks, bids = self.get_order_book()
+        except Exception:
+            return False, None
+
+        if not asks or not bids:
+            return False, None
+
+        return True, OrderBook(self, self.exchange, asks, bids)

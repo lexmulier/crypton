@@ -25,8 +25,8 @@ def handle_bad_requests(max_retries=3, sleep_between_retry=True):
                     raise error
 
                 print(
-                    "Exchange {} Error {}. Retrying {}/{}".format(
-                        exchange.exchange_id, type(error).__name__, retries, max_retries
+                    "Error {}. Retrying {}/{}".format(
+                        type(error).__name__, retries, max_retries
                     )
                 )
 
