@@ -1,6 +1,9 @@
 # Folders
 .idea/
 venv/
+__pycache__/
 
 # Settings
 config.py
+API_calls.py
+michiel.py
