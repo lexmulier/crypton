@@ -1,6 +1,6 @@
 import ccxt
 
-from orders import OrderBook
+from orders import OrderBook, BestOrderBookAsk, BestOrderBookBid
 from utils import handle_bad_requests
 
 
@@ -9,44 +9,57 @@ class Exchange(object):
         self.exchange_id = exchange_id
         self.api_config = api_config
 
+        # Initiate CCXT Exchange Class
         self.client = self.initiate_exchange_class()
-        self.markets_info = self.fetch_markets()
-        self.market_symbols = self.set_market_symbols()
 
-        self.markets = self.initiate_markets()
+        # Load all markets in the ExchangeMarket class
+        self.markets, self.market_symbols = self.initiate_markets()
+
+        # Load balance for this Exchange
+        self.balance = self.get_balance()
 
     def initiate_exchange_class(self):
         exchange_class = getattr(ccxt, self.exchange_id)
         exchange_api = exchange_class(self.api_config)
+
         return exchange_api
 
     @handle_bad_requests()
-    def fetch_markets(self):
-        return {market["symbol"]: market for market in self.client.fetch_markets()}
-
-    def set_market_symbols(self):
-        return list(self.markets_info)
-
     def initiate_markets(self):
+        markets = self.client.fetch_markets()
+
+        market_symbols = []
         exchange_markets = {}
-        for symbol in self.market_symbols:
-            exchange_markets[symbol] = ExchangeMarket(self, symbol)
-        return exchange_markets
+        for market in markets:
+            market_symbol = market['symbol']
+            market_symbols.append(market_symbol)
+            exchange_markets[market_symbol] = ExchangeMarket(self, market)
+        return exchange_markets, market_symbols
 
     @handle_bad_requests()
     def get_balance(self):
         response = self.client.fetch_balance()
-        if response["info"]["data"]:
-            return response["info"]["data"]
+        response_info = response.get("info")
+
+        if isinstance(response_info, list):
+            return {}  # Not implemented
+
+        elif isinstance(response_info, dict):
+            if response_info.get("data"):
+                balance_list = response["info"]["data"]
+                return {row['currency']: row for row in balance_list}
+
         return {}
 
 
 class ExchangeMarket(object):
-    def __init__(self, exchange, market_symbol):
+    def __init__(self, exchange, market):
         self.exchange = exchange
-        self.symbol = market_symbol
+        self.symbol = market['symbol']
+        self.base_coin = market['baseId']
+        self.quote_coin = market['quoteId']
 
-        self.info = self.get_market_info()
+        self.info = market
 
     def get_market_info(self):
         market_info = self.exchange.markets_info.get(self.symbol)
@@ -78,9 +91,12 @@ class ExchangeMarket(object):
         try:
             asks, bids = self.get_order_book()
         except Exception:
-            return False, None
+            return False, None, None
 
         if not asks or not bids:
-            return False, None
+            return False, None, None
 
-        return True, OrderBook(self, self.exchange, asks, bids)
+        best_ask = BestOrderBookAsk(self, self.exchange, asks)
+        best_bid = BestOrderBookBid(self, self.exchange, bids)
+
+        return True, best_ask, best_bid
