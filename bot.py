@@ -7,8 +7,10 @@ class Crypton(object):
 
     _sleep_seconds = 1
 
-    def __init__(self, exchange_configs):
+    def __init__(self, exchange_configs, debug=False):
         self.exchange_configs = exchange_configs
+        self.debug = debug
+
         self.exchanges = self.initiate_exchanges()
 
     def initiate_exchanges(self):

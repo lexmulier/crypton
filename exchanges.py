@@ -83,8 +83,8 @@ class ExchangeMarket(object):
         return trading_fees
 
     @handle_bad_requests(max_retries=1)
-    def get_order_book(self):
-        open_orders = self.exchange.client.fetch_order_book(symbol=self.symbol)
+    def get_order_book(self, limit=None):
+        open_orders = self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
         return open_orders["asks"], open_orders["bids"]
 
     def get_order(self):
