@@ -25,25 +25,33 @@ class CryptonExplore(Crypton):
     def _check(self, market_symbols=None):
         for symbol in market_symbols:
             for exchange_id, exchange in self.exchanges.items():
-                asks, bids = exchange.markets[symbol].get_order_book(limit=1)
+                try:
+                    asks, bids = exchange.markets[symbol].get_order_book(limit=1)
+                except Exception as error:
+                    if self.debug:
+                        print("{} - {}: {}".format(exchange_id, symbol, error))
+                    continue
 
                 if not asks or not bids:
                     continue
 
-                data = {
-                    "market": symbol,
-                    "exchange": exchange_id,
-                    "ask": asks[0][0],
-                    "bid": bids[0][0],
-                }
-
-                if self.debug:
-                    print("{} on {} | ask {} - bid {}".format(*data.values()))
-
-                data["date"] = datetime.datetime.now()
-                db.client.explore.insert_one(data)
+                self._insert_prices(exchange_id, symbol, asks, bids)
 
             self.sleep()
+
+    def _insert_prices(self, exchange_id, symbol, asks, bids):
+        data = {
+            "market": symbol,
+            "exchange": exchange_id,
+            "ask": asks[0][0],
+            "bid": bids[0][0],
+        }
+
+        if self.debug:
+            print("{} on {} | ask {} - bid {}".format(*data.values()))
+
+        data["date"] = datetime.datetime.now()
+        db.client.explore.insert_one(data)
 
     def start(self, market_symbols=None, limit=None):
         if market_symbols is None:
@@ -53,7 +61,8 @@ class CryptonExplore(Crypton):
         while True:
             print("Checking markets...")
             self._check(market_symbols=market_symbols)
-            self.sleep(seconds=60)
+
+            self.sleep(seconds=5)
 
             if limit == count:
                 break

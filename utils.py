@@ -3,7 +3,7 @@ from time import sleep
 import ccxt
 
 
-def handle_bad_requests(max_retries=3, sleep_between_retry=True):
+def handle_bad_requests(max_retries=3, sleep_between_retry=True, suppress=False):
     def decorator(func):
         def decorated_function(exchange, *args, **kwargs):
             retries = 0
