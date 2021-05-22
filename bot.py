@@ -3,7 +3,7 @@ from time import sleep
 from exchanges import Exchange
 
 
-class CryptonBase(object):
+class Crypton(object):
 
     _sleep_seconds = 1
 
@@ -17,28 +17,9 @@ class CryptonBase(object):
             for exchange_id, exchange_config in self.exchange_configs.items()
         }
 
-
-class Crypton(CryptonBase):
-
-    DEFAULT_MIN_PROFIT_MARGIN = 0.5
-    DEFAULT_MIN_PROFIT_AMOUNT = 10.0
-
-    def start(self, market_symbol):
-        while True:
-            success, best_exchange_asks, best_exchange_bids = self.fetch_orders(market_symbol)
-
-            if success is False:
-                sleep(self._sleep_seconds)
-                continue
-
-            if self.check_arbitrage(best_exchange_asks, best_exchange_bids) is False:
-                sleep(self._sleep_seconds)
-                continue
-
-            self.initiate_order()
-
-            # For now we break
-            break
+    def sleep(self, seconds=None):
+        seconds = seconds if seconds is not None else self._sleep_seconds
+        sleep(seconds)
 
     def fetch_orders(self, market_symbol):
         best_exchange_asks = []
@@ -59,6 +40,29 @@ class Crypton(CryptonBase):
             best_exchange_bids.append(best_bid)
 
         return True, best_exchange_asks, best_exchange_bids
+
+
+class CryptonTrade(Crypton):
+
+    DEFAULT_MIN_PROFIT_MARGIN = 0.5
+    DEFAULT_MIN_PROFIT_AMOUNT = 10.0
+
+    def start(self, market_symbol):
+        while True:
+            success, best_exchange_asks, best_exchange_bids = self.fetch_orders(market_symbol)
+
+            if success is False:
+                sleep(self._sleep_seconds)
+                continue
+
+            if self.check_arbitrage(best_exchange_asks, best_exchange_bids) is False:
+                sleep(self._sleep_seconds)
+                continue
+
+            self.initiate_order()
+
+            # For now we break
+            break
 
     @staticmethod
     def calculate_order_quantity(best_ask, best_bid):
