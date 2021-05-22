@@ -67,4 +67,5 @@ class CryptonExplore(Crypton):
 
 if __name__ == "__main__":
     bot = CryptonExplore(EXCHANGE_CONFIGS)
+    bot.start()
 
