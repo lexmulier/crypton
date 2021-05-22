@@ -54,12 +54,12 @@ class CryptonTrade(Crypton):
     @staticmethod
     def calculate_order_quantity(best_ask, best_bid):
         base_currency = best_ask.exchange_market.base_coin
-        ask_offer_quantity = best_ask.ask_quantity
-        ask_exchange_quantity = best_ask.exchange.balance.get(base_currency, {}).get('available', 0.0)
+        ask_offer_quantity = best_ask.quantity
+        ask_exchange_quantity = best_ask.exchange.balance.get(base_currency, {}).get('available', 0.0)  # Improve
 
         quote_currency = best_bid.exchange_market.base_coin
-        bid_offer_quantity = best_bid.bid_quantity
-        bid_exchange_quantity = best_bid.exchange.balance.get(quote_currency, {}).get('available', 0.0)
+        bid_offer_quantity = best_bid.quantity
+        bid_exchange_quantity = best_bid.exchange.balance.get(quote_currency, {}).get('available', 0.0)  # Improve
 
         return min(ask_offer_quantity, ask_exchange_quantity, bid_offer_quantity, bid_exchange_quantity)
 
@@ -86,12 +86,16 @@ class CryptonTrade(Crypton):
             self.notify("Skipping: Best ask and best bid are on the same exchange")
             return False
 
+        # The bid price is the highest price a potential buyer is willing to pay for a crypto.
+        # The ask price is the lowest price a would-be seller is willing to accept for a crypto
+        # When the bid price on one exchange is higher than the ask price on another exchange,
+        # this is an arbitrage opportunity.
         if best_ask.price >= best_bid.price:
             self.notify("Skipping: There is no arbitrage")
             return False
 
         if self.verify_profit_margin(best_ask, best_bid):
-            self.notify("Skipping: Not enough profit")
+            self.notify("Skipping: Not enough profit (risk)")
             return False
 
         quantity = self.calculate_order_quantity(best_ask, best_bid)
@@ -122,5 +126,6 @@ class CryptonTrade(Crypton):
         print("Ordering")
 
 
-bot = CryptonTrade(EXCHANGE_CONFIGS, verbose=True)
-bot.start("BTC/USDT")
+if __name__ == "__main__":
+    bot = CryptonTrade(EXCHANGE_CONFIGS, verbose=True)
+    bot.start("BTC/USDT")

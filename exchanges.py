@@ -87,9 +87,9 @@ class ExchangeMarket(object):
         open_orders = self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
         return open_orders["asks"], open_orders["bids"]
 
-    def get_order(self):
+    def get_order(self, limit=None):
         try:
-            asks, bids = self.get_order_book()
+            asks, bids = self.get_order_book(limit=limit)
         except Exception:
             return False, None, None
 

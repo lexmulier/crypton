@@ -7,9 +7,9 @@ class Crypton(object):
 
     _sleep_seconds = 1
 
-    def __init__(self, exchange_configs, debug=False):
+    def __init__(self, exchange_configs, verbose=False):
         self.exchange_configs = exchange_configs
-        self.verbose = debug
+        self.verbose = verbose
 
         self.exchanges = self.initiate_exchanges()
 

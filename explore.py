@@ -24,26 +24,24 @@ class CryptonExplore(Crypton):
 
     def _check(self, market_symbols=None):
         for symbol in market_symbols:
-            for exchange_id, exchange in self.exchanges.items():
-                try:
-                    asks, bids = exchange.markets[symbol].get_order_book(limit=1)
-                except Exception as error:
-                    self.notify("{} - {}: {}".format(exchange_id, symbol, error))
+            for exchange in self.exchanges.values():
+                exchange_market = exchange.markets[symbol]
+                success, best_ask, best_bid = exchange_market.get_order(limit=1)
+
+                if success is False:
+                    self.notify(exchange.exchange_id, "Couldn't reach")
                     continue
 
-                if not asks or not bids:
-                    continue
-
-                self._insert_prices(exchange_id, symbol, asks, bids)
+                self._insert_prices(exchange_market, best_ask, best_bid)
 
             self.sleep()
 
-    def _insert_prices(self, exchange_id, symbol, asks, bids):
+    def _insert_prices(self, market, ask, bid):
         data = {
-            "market": symbol,
-            "exchange": exchange_id,
-            "ask": asks[0][0],
-            "bid": bids[0][0],
+            "market": market.symbol,
+            "exchange": market.exchange.exchange_id,
+            "ask": ask.price,
+            "bid": bid.price,
         }
 
         self.notify("{} on {} | ask {} - bid {}".format(*data.values()))
