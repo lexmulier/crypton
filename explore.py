@@ -16,9 +16,6 @@ class CryptonExplore(Crypton):
 
     def __init__(self, *args, **kwargs):
         super(CryptonExplore, self).__init__(*args, **kwargs)
-        if len(self.exchanges) != 2:
-            raise ValueError("Comparison can only be done with exactly 2 exchanges")
-
         self.overlapping_markets = self._get_overlapping_markets()
 
     def _get_overlapping_markets(self):
@@ -46,10 +43,9 @@ class CryptonExplore(Crypton):
                 data["date"] = datetime.datetime.now()
                 db.client.explore.insert_one(data)
 
-
             self.sleep()
 
-    def start(self, market_symbols=None, limit=0):
+    def start(self, market_symbols=None, limit=None):
         if market_symbols is None:
             market_symbols = self.overlapping_markets
 
