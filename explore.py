@@ -28,8 +28,7 @@ class CryptonExplore(Crypton):
                 try:
                     asks, bids = exchange.markets[symbol].get_order_book(limit=1)
                 except Exception as error:
-                    if self.debug:
-                        print("{} - {}: {}".format(exchange_id, symbol, error))
+                    self.notify("{} - {}: {}".format(exchange_id, symbol, error))
                     continue
 
                 if not asks or not bids:
@@ -47,8 +46,7 @@ class CryptonExplore(Crypton):
             "bid": bids[0][0],
         }
 
-        if self.debug:
-            print("{} on {} | ask {} - bid {}".format(*data.values()))
+        self.notify("{} on {} | ask {} - bid {}".format(*data.values()))
 
         data["date"] = datetime.datetime.now()
         db.client.explore.insert_one(data)
@@ -59,7 +57,7 @@ class CryptonExplore(Crypton):
 
         count = 0
         while True:
-            print("Checking markets...")
+            self.notify("Checking markets...")
             self._check(market_symbols=market_symbols)
 
             self.sleep(seconds=5)
