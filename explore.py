@@ -24,6 +24,7 @@ class CryptonExplore(Crypton):
 
     def _check(self, market_symbols=None):
         for symbol in market_symbols:
+            timestamp = datetime.datetime.now()
             for exchange in self.exchanges.values():
                 exchange_market = exchange.markets[symbol]
                 success, best_ask, best_bid = exchange_market.get_order(limit=1)
@@ -32,11 +33,11 @@ class CryptonExplore(Crypton):
                     self.notify(exchange.exchange_id, "Couldn't reach")
                     continue
 
-                self._insert_prices(exchange_market, best_ask, best_bid)
+                self._insert_prices(exchange_market, best_ask, best_bid, timestamp)
 
             self.sleep()
 
-    def _insert_prices(self, market, ask, bid):
+    def _insert_prices(self, market, ask, bid, timestamp):
         data = {
             "market": market.symbol,
             "exchange": market.exchange.exchange_id,
@@ -46,7 +47,7 @@ class CryptonExplore(Crypton):
 
         self.notify("{} on {} | ask {} - bid {}".format(*data.values()))
 
-        data["date"] = datetime.datetime.now()
+        data["date"] = timestamp
         db.client.explore.insert_one(data)
 
     def start(self, market_symbols=None, limit=None):
