@@ -1,12 +1,46 @@
 class OrderBook(object):
+    price = None
+    quantity = None
+
     def __init__(self, exchange_market, exchange):
         self.exchange_market = exchange_market
         self.symbol = exchange_market.symbol
         self.exchange = exchange
         self.exchange_id = exchange.exchange_id
 
+    @property
+    def price_with_fee(self):
+        return self._calculate_price_with_fee(self.price, self.quantity)
+
+    def _generate_output(self):
+        return "{}(exchange={}, symbol={}, price={}, quantity={})".format(
+            self.__class__.__name__,
+            self.exchange_id,
+            self.symbol,
+            self.price,
+            self.quantity
+        )
+
+    def __repr__(self):
+        return self._generate_output()
+
+    def __str__(self):
+        return self._generate_output()
+
+    def __lt__(self, other_exchange):
+        return self.price_with_fee < other_exchange.price_with_fee
+
+    def __le__(self, other_exchange):
+        return self.price_with_fee <= other_exchange.price_with_fee
+
+    def __gt__(self, other_exchange):
+        return self.price_with_fee > other_exchange.price_with_fee
+
+    def __ge__(self, other_exchange):
+        return self.price_with_fee >= other_exchange.price_with_fee
+
     @staticmethod
-    def find_fee_tier(trading_fees_data, quantity, taker_or_maker='taker'):
+    def _find_fee_tier(trading_fees_data, quantity, taker_or_maker='taker'):
         fee_tiers = trading_fees_data['tiers'][taker_or_maker]
         # Loop tiers reversed to simplify the check
         for tier in fee_tiers[::-1]:
@@ -15,10 +49,10 @@ class OrderBook(object):
         # Return first tier if nothing matched
         return fee_tiers[0][1]
 
-    def calculate_price_with_fee(self, price, quantity, taker_or_maker='taker'):
+    def _calculate_price_with_fee(self, price, quantity, taker_or_maker='taker'):
         trading_fees_data = self.exchange_market.trading_fees
         if trading_fees_data.get('tierBased', False) is True:
-            trading_fee = self.find_fee_tier(trading_fees_data, quantity, taker_or_maker=taker_or_maker)
+            trading_fee = self._find_fee_tier(trading_fees_data, quantity, taker_or_maker=taker_or_maker)
         else:
             trading_fee = trading_fees_data[taker_or_maker]
 
@@ -29,10 +63,15 @@ class OrderBook(object):
 
 
 class BestOrderBookBid(OrderBook):
+    """
+    The bid price is the highest price a potential buyer is willing to pay for a crypto.
+    """
 
     def __init__(self, exchange_market, exchange, bids):
-        OrderBook.__init__(self, exchange_market, exchange)
+        super(BestOrderBookBid, self).__init__(exchange_market, exchange)
         self.bids = self.order_bids(bids)
+        # TODO: Add option to include all Bids where there is arbitrage, not just the best one.
+        # It might mean that there is more profit in amount because the order is larger.
 
     @staticmethod
     def order_bids(bids):
@@ -46,32 +85,17 @@ class BestOrderBookBid(OrderBook):
     def quantity(self):
         return self.bids[0][1]
 
-    @property
-    def price_with_fee(self):
-        return self.calculate_price_with_fee(self.price, self.quantity)
-
-    @property
-    def cost_with_fee(self):
-        return self.quantity * self.price_with_fee
-
-    def __lt__(self, other_exchange):
-        return self.price_with_fee < other_exchange.price_with_fee
-
-    def __le__(self, other_exchange):
-        return self.price_with_fee <= other_exchange.price_with_fee
-
-    def __gt__(self, other_exchange):
-        return self.price_with_fee > other_exchange.price_with_fee
-
-    def __ge__(self, other_exchange):
-        return self.price_with_fee >= other_exchange.price_with_fee
-
 
 class BestOrderBookAsk(OrderBook):
+    """
+    The ask price is the lowest price a would-be seller is willing to accept for a crypto
+    """
 
     def __init__(self, exchange_market, exchange, asks):
-        OrderBook.__init__(self, exchange_market, exchange)
+        super(BestOrderBookAsk, self).__init__(exchange_market, exchange)
         self.asks = self.order_asks(asks)
+        # TODO: Add option to include all Asks where there is arbitrage, not just the best one.
+        # It might mean that there is more profit in amount because the order is larger.
 
     @staticmethod
     def order_asks(asks):
@@ -84,23 +108,3 @@ class BestOrderBookAsk(OrderBook):
     @property
     def quantity(self):
         return self.asks[0][1]
-
-    @property
-    def price_with_fee(self):
-        return self.calculate_price_with_fee(self.price, self.quantity)
-
-    @property
-    def cost_with_fee(self):
-        return self.quantity * self.price_with_fee
-
-    def __lt__(self, other_exchange):
-        return self.price_with_fee < other_exchange.price_with_fee
-
-    def __le__(self, other_exchange):
-        return self.price_with_fee <= other_exchange.price_with_fee
-
-    def __gt__(self, other_exchange):
-        return self.price_with_fee > other_exchange.price_with_fee
-
-    def __ge__(self, other_exchange):
-        return self.price_with_fee >= other_exchange.price_with_fee

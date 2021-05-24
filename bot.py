@@ -15,7 +15,7 @@ class Crypton(object):
 
     def initiate_exchanges(self):
         return {
-            exchange_id: Exchange(exchange_id, exchange_config)
+            exchange_id: Exchange(exchange_id, exchange_config, verbose=self.verbose)
             for exchange_id, exchange_config in self.exchange_configs.items()
         }
 

@@ -1,13 +1,20 @@
 import ccxt
 
-from orders import OrderBook, BestOrderBookAsk, BestOrderBookBid
+from orders import BestOrderBookAsk, BestOrderBookBid
 from utils import handle_bad_requests
 
 
 class Exchange(object):
-    def __init__(self, exchange_id, api_config):
+
+    _required_config_keys = ["apiKey", "secret"]
+
+    def __init__(self, exchange_id, api_config, verbose=False):
         self.exchange_id = exchange_id
         self.api_config = api_config
+        self.verbose = verbose
+
+        if any([key not in self.api_config for key in self._required_config_keys]):
+            raise ValueError("Exchange configuration missing required input parameters")
 
         # Initiate CCXT Exchange Class
         self.client = self.initiate_exchange_class()
@@ -16,7 +23,11 @@ class Exchange(object):
         self.markets, self.market_symbols = self.initiate_markets()
 
         # Load balance for this Exchange
-        self.balance = self.get_balance()
+        self.balance = self.retrieve_exchange_balances()
+
+    def notify(self, *args):
+        if self.verbose:
+            print("EXCHANGE {}:".format(self.exchange_id), *args)
 
     def initiate_exchange_class(self):
         exchange_class = getattr(ccxt, self.exchange_id)
@@ -33,33 +44,48 @@ class Exchange(object):
         for market in markets:
             market_symbol = market['symbol']
             market_symbols.append(market_symbol)
-            exchange_markets[market_symbol] = ExchangeMarket(self, market)
+            exchange_markets[market_symbol] = ExchangeMarket(self, market, verbose=self.verbose)
+
+        self.notify("Found {} markets".format(len(exchange_markets)))
+
         return exchange_markets, market_symbols
 
+    def get_balance(self, symbol):
+        return self.balance.get(symbol, {}).get('available', 0.0)
+
+    def get_balance_fake(self, symbol):
+        # TODO: REMOVE!!
+        from random import randrange
+        return randrange(1, 500)
+
     @handle_bad_requests()
-    def get_balance(self):
+    def retrieve_exchange_balances(self):
         response = self.client.fetch_balance()
         response_info = response.get("info")
 
+        balance = dict()
         if isinstance(response_info, list):
-            return {}  # Not implemented
+            pass
 
         elif isinstance(response_info, dict):
             if response_info.get("data"):
                 balance_list = response["info"]["data"]
-                return {row['currency']: row for row in balance_list}
+                balance = {row['currency']: row for row in balance_list}
 
-        return {}
+        self.notify("Initiating markets for", self.exchange_id)
+
+        return balance
 
 
 class ExchangeMarket(object):
-    def __init__(self, exchange, market):
+    def __init__(self, exchange, market, verbose=False):
         self.exchange = exchange
         self.symbol = market['symbol']
         self.base_coin = market['baseId']
         self.quote_coin = market['quoteId']
 
         self.info = market
+        self.verbose = verbose
 
     def get_market_info(self):
         market_info = self.exchange.markets_info.get(self.symbol)
@@ -76,9 +102,7 @@ class ExchangeMarket(object):
     def trading_fees(self):
         try:
             trading_fees = self.exchange.client.fetch_trading_fees(self.symbol)
-        except ccxt.NotSupported:
-            trading_fees = self.exchange.client.fees.get('trading', {})
-        except ValueError:
+        except (ccxt.NotSupported, ValueError):
             trading_fees = self.exchange.client.fees.get('trading', {})
         return trading_fees
 
@@ -87,13 +111,23 @@ class ExchangeMarket(object):
         open_orders = self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
         return open_orders["asks"], open_orders["bids"]
 
+    def get_order_book_fake(self, limit=None):
+        # TODO: REMOVE!!
+        from random import randrange
+        variance = len(self.exchange.exchange_id)
+        asks = [[1000 + (10 * variance) + x + 2, randrange(1, 500)] for x in range(1, 50)]
+        bids = [[1000 + (10 * variance) + x, randrange(1, 500)] for x in range(1, 50)]
+        return asks, bids
+
     def get_order(self, limit=None):
         try:
             asks, bids = self.get_order_book(limit=limit)
-        except Exception:
+        except Exception as error:
+            self.exchange.notify("Unsuccessful reaching market {}: {}".format(self.symbol, error))
             return False, None, None
 
         if not asks or not bids:
+            self.exchange.notify("No Asks or Bids found for market", self.symbol)
             return False, None, None
 
         best_ask = BestOrderBookAsk(self, self.exchange, asks)
