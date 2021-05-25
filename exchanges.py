@@ -51,7 +51,7 @@ class Exchange(object):
         return exchange_markets, market_symbols
 
     def get_balance(self, symbol):
-        return self.balance.get(symbol, 200.0)  # TODO: Replace 200.0 with 0.0
+        return self.balance.get(symbol, 0.0)
 
     def get_balance_fake(self, symbol):
         # TODO: REMOVE!!

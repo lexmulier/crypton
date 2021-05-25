@@ -27,42 +27,73 @@ class CryptonTrade(Crypton):
             else:
                 print(*args)
 
-    def start(self, market_symbol, minimal_quantity=0):
+    def start(self, market_symbol, min_qty=0):
         while True:
             self.sleep()
+
             self.notify("#" * 20)
-            self.trade_id = ObjectId()
+            self.trade_id = ObjectId()self.verify_arbitrage_and_profit(best_ask, best_bid, order_qty, min_qty)
 
             success, best_exchange_asks, best_exchange_bids = self.fetch_orders(market_symbol)
             if not success:
                 continue
 
-            best_ask, best_bid = self.clean_orders(best_exchange_asks, best_exchange_bids)
-
-            # Calculate the maximum quantity we can purchase based on bid, ask and balances
-            order_quantity = self.get_max_quantity(best_ask, best_bid)
-
-            # Check if there is arbitrage and adequate profit
-            if not self.verify_arbitrage_and_profit(best_ask, best_bid, order_quantity, minimal_quantity):
+            # Find the best opportunity based on ask/bid price, ask/bid quantity and available funds
+            order_qty, best_ask, best_bid = self.get_best_opportunity(best_exchange_asks, best_exchange_bids, min_qty)
+            if order_qty <= 0.0:
                 continue
 
-            self.initiate_order(best_ask, best_bid, order_quantity)
+            # Check if there is arbitrage and adequate profit
+            if not self.verify_arbitrage_and_profit(best_ask, best_bid, order_qty, min_qty):
+                continue
+
+            self.notify("Order quantity:", order_qty)
+
+            self.initiate_order(best_ask, best_bid, order_qty)
 
             break  # Temporary
 
-    def clean_orders(self, best_exchange_asks, best_exchange_bids):
-        # Best ask
+    def get_best_opportunity(self, best_exchange_asks, best_exchange_bids, min_qty):
         best_ask = min(best_exchange_asks)
-        best_ask.
-        self.notify(best_ask)
-
-        # Best bid
         best_bid = max(best_exchange_bids)
+
+        # Get the balance on the exchanges
+        ask_exchange_qty, bid_exchange_qty = self.get_exchange_balances(best_ask, best_bid)
+
+        # Check if we have enough on balance to proceed on both exchanges (not stopping)
+        self.check_enough_balance(best_ask, best_bid, ask_exchange_qty, bid_exchange_qty, min_qty)
+
+        # Filter the opportunities based on arbitrage and qty in exchanges
+        best_ask.opportunity(best_bid.price_with_fee, ask_exchange_qty, min_qty)
+        best_bid.opportunity(best_ask.price_with_fee, bid_exchange_qty, min_qty)
+
+        self.notify(best_ask)
         self.notify(best_bid)
 
+        order_quantity = min(best_ask.best_quantity, best_bid.best_quantity)
 
+        if order_quantity <= 0.0:
+            self.notify("No good opportunity")
 
-        return best_ask, best_bid
+        return order_quantity, best_ask, best_bid
+
+    def check_enough_balance(self, best_ask, best_bid, ask_exchange_qty, bid_exchange_qty, minimal_qty):
+        if minimal_qty > bid_exchange_qty:
+            self.notify(
+                "Not enough {} on {}. Current balance: {}".format(
+                    best_bid.exchange_market.base_coin,
+                    best_bid.exchange_id,
+                    bid_exchange_qty
+                )
+            )
+        elif minimal_qty > ask_exchange_qty:
+            self.notify(
+                "Not enough {} on {}. Current balance: {}".format(
+                    best_ask.exchange_market.quote_coin,
+                    best_ask.exchange_id,
+                    ask_exchange_qty
+                )
+            )
 
     def fetch_orders(self, market_symbol):
         best_exchange_asks = []
@@ -80,48 +111,39 @@ class CryptonTrade(Crypton):
 
         return True, best_exchange_asks, best_exchange_bids
 
-    def get_max_quantity(self, best_ask, best_bid):
-        # How much volume is the lowest ask selling
-        best_ask_quantity = best_ask.quantity
-
-        # How much volume is the highest bid buying
-        best_bid_quantity = best_bid.quantity
-
+    @staticmethod
+    def get_exchange_balances(best_ask, best_bid):
         # How much volume can I buy with my payment currency (we need to calculate it)
         quote_currency = best_ask.exchange_market.quote_coin
-        quote_currency_balance = best_ask.exchange.get_balance(quote_currency)
-        ask_exchange_quantity = quote_currency_balance / best_ask.price_with_fee
-        ask_exchange_quantity = ask_exchange_quantity or best_ask_quantity  # TEMP!!!
+        quote_currency_balance = best_ask.exchange.get_balance_fake(quote_currency)  # TODO: Replace function
+        ask_exchange_qty = quote_currency_balance / best_ask.price_with_fee
 
         # How much volume can I sell due to how much I have in balance
         base_currency = best_bid.exchange_market.base_coin
-        bid_exchange_quantity = best_bid.exchange.get_balance(base_currency) or best_bid_quantity  # TEMP!!!
+        bid_exchange_qty = best_bid.exchange.get_balance_fake(base_currency)  # TODO: Replace function
 
-        # We take the lowest volume as it's our limit
-        order_quantity = min(best_ask_quantity, ask_exchange_quantity, best_bid_quantity, bid_exchange_quantity)
+        return ask_exchange_qty, bid_exchange_qty
 
-        self.notify("Max possible quantity:", order_quantity)
-
-        return order_quantity
-
-    def adequate_profit(self, best_ask, best_bid, order_quantity):
+    def adequate_profit(self, best_ask, best_bid):
         """
         Return False if we consider the profit margin not large enough
         """
-        profit_percentage = ((best_bid.price_with_fee - best_ask.price_with_fee) / best_ask.price_with_fee) * 100.0
+        bid_price = best_bid.best_price_with_fee
+        ask_price = best_ask.best_price_with_fee
+
+        profit_percentage = ((bid_price - ask_price) / ask_price) * 100.0
         percentage_margin = profit_percentage >= self.MIN_PROFIT_PERCENTAGE
 
-        profit_amount = (best_bid.price_with_fee * order_quantity) - (best_ask.price_with_fee * order_quantity)  # TODO: Should fee be included in this calculation?
-        amount_margin = profit_amount >= self.MIN_PROFIT_AMOUNT
-
-        if not percentage_margin and not amount_margin:
-            msg = "Profit percentage {}% below min profit {}% | Profit amount {} below min profit {}"
-            msg = msg.format(profit_percentage, self.MIN_PROFIT_PERCENTAGE, profit_amount, self.MIN_PROFIT_AMOUNT)
+        if not percentage_margin:
+            msg = "Profit percentage {}% below min profit {}%"
+            msg = msg.format(profit_percentage, self.MIN_PROFIT_PERCENTAGE)
             self.notify(msg)
 
-        return percentage_margin or amount_margin
+        self.notify("Best offer has a profit margin of", profit_percentage)
 
-    def verify_arbitrage_and_profit(self, best_ask, best_bid, order_quantity, minimal_quantity):
+        return percentage_margin
+
+    def verify_arbitrage_and_profit(self, best_ask, best_bid, order_qty, minimal_qty):
         """
         When the bid price on one exchange is higher than the ask price on another exchange,
         this is an arbitrage opportunity.
@@ -138,24 +160,22 @@ class CryptonTrade(Crypton):
             return False
 
         # We want to order at least a certain amount to avoid small trading
-        if order_quantity <= minimal_quantity:
-            self.notify("Skipping: Not enough volume to proceed")
+        if order_qty <= minimal_qty:
+            self.notify("Skipping: Order quantity is too low (Do we get here ever?)")
             return False
 
         # Check if the amount or percentage is high enough to take the risk
-        if not self.adequate_profit(best_ask, best_bid, order_quantity):
+        if not self.adequate_profit(best_ask, best_bid):
             return False
-
-        # TODO: Check if we can get more bids to find the highest. Pagination?
 
         return True
 
-    def initiate_order(self, best_ask, best_bid, order_quantity):
+    def initiate_order(self, best_ask, best_bid, order_qty):
         msg = "{} {} on {} for {} each"
-        self.notify(msg.format("Selling", order_quantity, best_bid.exchange_id, best_bid.price_with_fee))
-        self.notify(msg.format("Buying", order_quantity, best_ask.exchange_id, best_ask.price_with_fee))
+        self.notify(msg.format("Selling", order_qty, best_bid.exchange_id, best_bid.price_with_fee))
+        self.notify(msg.format("Buying", order_qty, best_ask.exchange_id, best_ask.price_with_fee))
 
-        profit = (best_bid.price_with_fee * order_quantity) - (best_ask.price_with_fee * order_quantity)
+        profit = (best_bid.price_with_fee * order_qty) - (best_ask.price_with_fee * order_qty)
         self.notify("Estimated profit {} {}".format(profit, best_bid.exchange_market.base_coin))
 
         # WIP

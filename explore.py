@@ -64,8 +64,8 @@ class CryptonExplore(Crypton):
             return
 
         # Check if the best asking price with fee is lower than the best asking bid with fee
-        margin_percentage = (((best_bid.price - best_ask.price) / best_ask.price) * 100.0)
-        if (((best_bid.price - best_ask.price) / best_ask.price) * 100.0) < self.MIN_ARBITRAGE_PERCENTAGE:
+        margin_percentage = (((best_bid.first_price - best_ask.first_price) / best_ask.first_price) * 100.0)
+        if margin_percentage < self.MIN_ARBITRAGE_PERCENTAGE:
             self.notify("Skipping: There is no arbitrage")
             return
 
@@ -77,10 +77,10 @@ class CryptonExplore(Crypton):
             "ask_exchange": ask.exchange.exchange_id,
             "bid_exchange": bid.exchange.exchange_id,
             "arbitrage_margin": margin_percentage,
-            "ask_price": ask.price,
-            "ask_quantity": ask.quantity,
-            "bid_price": bid.price,
-            "bid_quantity": bid.quantity,
+            "ask_price": ask.first_price,
+            "ask_quantity": ask.first_quantity,
+            "bid_price": bid.first_price,
+            "bid_quantity": bid.first_quantity,
             "date": timestamp
         }
 
