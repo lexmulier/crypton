@@ -14,7 +14,6 @@ EXCHANGE_CONFIGS = {
 class CryptonTrade(Crypton):
 
     MIN_PROFIT_PERCENTAGE = 1.5
-    MIN_PROFIT_AMOUNT = 1.0
 
     def __init__(self, *args, **kwargs):
         super(CryptonTrade, self).__init__(*args, **kwargs)
@@ -172,11 +171,14 @@ class CryptonTrade(Crypton):
 
     def initiate_order(self, best_ask, best_bid, order_qty):
         msg = "{} {} on {} for {} each"
-        self.notify(msg.format("Selling", order_qty, best_bid.exchange_id, best_bid.price_with_fee))
-        self.notify(msg.format("Buying", order_qty, best_ask.exchange_id, best_ask.price_with_fee))
+        self.notify(msg.format("Selling", order_qty, best_bid.exchange_id, best_bid.best_price_with_fee))
+        self.notify(msg.format("Buying", order_qty, best_ask.exchange_id, best_ask.best_price_with_fee))
 
-        profit = (best_bid.price_with_fee * order_qty) - (best_ask.price_with_fee * order_qty)
-        self.notify("Estimated profit {} {}".format(profit, best_bid.exchange_market.base_coin))
+        bid_price = best_bid.best_price_with_fee
+        ask_price = best_ask.best_price_with_fee
+
+        profit_percentage = ((bid_price - ask_price) / ask_price) * 100.0
+        self.notify("Estimated profit {} {}".format(profit_percentage, best_bid.exchange_market.base_coin))
 
         # WIP
 
