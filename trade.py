@@ -13,7 +13,7 @@ EXCHANGE_CONFIGS = {
 
 class CryptonTrade(Crypton):
 
-    MIN_PROFIT_PERCENTAGE = 0.5
+    MIN_PROFIT_PERCENTAGE = 1.5
     MIN_PROFIT_AMOUNT = 1.0
 
     def __init__(self, *args, **kwargs):
@@ -27,7 +27,7 @@ class CryptonTrade(Crypton):
             else:
                 print(*args)
 
-    def start(self, market_symbol):
+    def start(self, market_symbol, minimal_quantity=0):
         while True:
             self.sleep()
             self.notify("#" * 20)
@@ -37,38 +37,43 @@ class CryptonTrade(Crypton):
             if not success:
                 continue
 
-            # Best ask
-            best_ask = min(best_exchange_asks)
-            self.notify(best_ask)
-
-            # Best bid
-            best_bid = max(best_exchange_bids)
-            self.notify(best_bid)
+            best_ask, best_bid = self.clean_orders(best_exchange_asks, best_exchange_bids)
 
             # Calculate the maximum quantity we can purchase based on bid, ask and balances
             order_quantity = self.get_max_quantity(best_ask, best_bid)
 
             # Check if there is arbitrage and adequate profit
-            if not self.verify_arbitrage_and_profit(best_ask, best_bid, order_quantity):
+            if not self.verify_arbitrage_and_profit(best_ask, best_bid, order_quantity, minimal_quantity):
                 continue
 
             self.initiate_order(best_ask, best_bid, order_quantity)
 
             break  # Temporary
 
+    def clean_orders(self, best_exchange_asks, best_exchange_bids):
+        # Best ask
+        best_ask = min(best_exchange_asks)
+        best_ask.
+        self.notify(best_ask)
+
+        # Best bid
+        best_bid = max(best_exchange_bids)
+        self.notify(best_bid)
+
+
+
+        return best_ask, best_bid
+
     def fetch_orders(self, market_symbol):
         best_exchange_asks = []
         best_exchange_bids = []
         for exchange in self.exchanges.values():
-
-            self.notify("Pinging {}".format(exchange.exchange_id))
-
             exchange_market = exchange.markets[market_symbol]
             success, best_ask, best_bid = exchange_market.get_order()
 
             if success is False:
                 self.notify(exchange.exchange_id, "API Failed. We need to retry all Exchanges")
-                return False, []
+                return False, [], []
 
             best_exchange_asks.append(best_ask)
             best_exchange_bids.append(best_bid)
@@ -103,7 +108,7 @@ class CryptonTrade(Crypton):
         """
         Return False if we consider the profit margin not large enough
         """
-        profit_percentage = (best_bid.price_with_fee - best_ask.price_with_fee) / best_bid.price_with_fee
+        profit_percentage = ((best_bid.price_with_fee - best_ask.price_with_fee) / best_ask.price_with_fee) * 100.0
         percentage_margin = profit_percentage >= self.MIN_PROFIT_PERCENTAGE
 
         profit_amount = (best_bid.price_with_fee * order_quantity) - (best_ask.price_with_fee * order_quantity)  # TODO: Should fee be included in this calculation?
@@ -116,11 +121,12 @@ class CryptonTrade(Crypton):
 
         return percentage_margin or amount_margin
 
-    def verify_arbitrage_and_profit(self, best_ask, best_bid, order_quantity):
+    def verify_arbitrage_and_profit(self, best_ask, best_bid, order_quantity, minimal_quantity):
         """
         When the bid price on one exchange is higher than the ask price on another exchange,
         this is an arbitrage opportunity.
         """
+
         # Check if the best ask and best bid are on different exchanges.
         if best_ask.exchange_id == best_bid.exchange_id:
             self.notify("Skipping: Best ask and best bid are on the same exchange")
@@ -131,7 +137,8 @@ class CryptonTrade(Crypton):
             self.notify("Skipping: There is no arbitrage")
             return False
 
-        if order_quantity <= 0.0:
+        # We want to order at least a certain amount to avoid small trading
+        if order_quantity <= minimal_quantity:
             self.notify("Skipping: Not enough volume to proceed")
             return False
 
@@ -152,3 +159,4 @@ class CryptonTrade(Crypton):
         self.notify("Estimated profit {} {}".format(profit, best_bid.exchange_market.base_coin))
 
         # WIP
+

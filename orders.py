@@ -85,6 +85,16 @@ class BestOrderBookBid(OrderBook):
     def quantity(self):
         return self.bids[0][1]
 
+    def opportunity(self, lowest_ask_price_with_fee):
+        for bid, quantity in self.bids:
+            bid_with_fee =
+            if bid > lowest_ask_price_with_fee:
+
+
+
+        valid_bids = [bid for bid in self.bids if bid[0] > lowest_ask_price]
+
+
 
 class BestOrderBookAsk(OrderBook):
     """
