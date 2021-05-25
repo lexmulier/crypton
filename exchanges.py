@@ -51,7 +51,7 @@ class Exchange(object):
         return exchange_markets, market_symbols
 
     def get_balance(self, symbol):
-        return self.balance.get(symbol, {}).get('available', 0.0)
+        return self.balance.get(symbol, 200.0)  # TODO: Replace 200.0 with 0.0
 
     def get_balance_fake(self, symbol):
         # TODO: REMOVE!!
@@ -61,18 +61,14 @@ class Exchange(object):
     @handle_bad_requests()
     def retrieve_exchange_balances(self):
         response = self.client.fetch_balance()
-        response_info = response.get("info")
+        balance_data = response.get("info")
 
         balance = dict()
-        if isinstance(response_info, list):
+        if isinstance(balance_data, list):
             pass
 
-        elif isinstance(response_info, dict):
-            if response_info.get("data"):
-                balance_list = response["info"]["data"]
-                balance = {row['currency']: row for row in balance_list}
-
-        self.notify("Initiating markets for", self.exchange_id)
+        elif isinstance(balance_data, dict):
+            balance = {row["asset"]: float(row["free"]) for row in balance_data.get("balances", {})}
 
         return balance
 

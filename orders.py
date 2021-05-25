@@ -8,10 +8,6 @@ class OrderBook(object):
         self.exchange = exchange
         self.exchange_id = exchange.exchange_id
 
-    @property
-    def price_with_fee(self):
-        return self._calculate_price_with_fee(self.price, self.quantity)
-
     def _generate_output(self):
         return "{}(exchange={}, symbol={}, price={}, quantity={})".format(
             self.__class__.__name__,
@@ -38,6 +34,10 @@ class OrderBook(object):
 
     def __ge__(self, other_exchange):
         return self.price_with_fee >= other_exchange.price_with_fee
+
+    @property
+    def price_with_fee(self):
+        return self._calculate_price_with_fee(self.price, self.quantity)
 
     @staticmethod
     def _find_fee_tier(trading_fees_data, quantity, taker_or_maker='taker'):
