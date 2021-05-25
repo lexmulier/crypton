@@ -32,7 +32,7 @@ class CryptonTrade(Crypton):
             self.sleep()
 
             self.notify("#" * 20)
-            self.trade_id = ObjectId()self.verify_arbitrage_and_profit(best_ask, best_bid, order_qty, min_qty)
+            self.trade_id = ObjectId()
 
             success, best_exchange_asks, best_exchange_bids = self.fetch_orders(market_symbol)
             if not success:
