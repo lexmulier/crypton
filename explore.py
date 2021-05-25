@@ -31,7 +31,7 @@ class CryptonExplore(Crypton):
 
     async def _query_exchange(self, exchange, symbol):
         exchange_market = exchange.markets[symbol]
-        success, best_ask, best_bid = exchange_market.get_order(limit=1)
+        success, best_ask, best_bid = exchange_market.get_order()
 
         if success is False:
             self.notify("CHECK {}: Couldn't reach market {}".format(exchange.exchange_id, symbol))
@@ -105,7 +105,6 @@ class CryptonExplore(Crypton):
                         symbol
                     ))
                     asyncio.run(self._check_arbitrage(exchange_left, exchange_right, symbol))
-                    self.sleep(seconds=0.5)
 
 
 if __name__ == "__main__":
