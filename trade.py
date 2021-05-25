@@ -86,10 +86,11 @@ class CryptonTrade(Crypton):
         quote_currency = best_ask.exchange_market.quote_coin
         quote_currency_balance = best_ask.exchange.get_balance(quote_currency)
         ask_exchange_quantity = quote_currency_balance / best_ask.price_with_fee
+        ask_exchange_quantity = ask_exchange_quantity or best_ask_quantity  # TEMP!!!
 
         # How much volume can I sell due to how much I have in balance
         base_currency = best_bid.exchange_market.base_coin
-        bid_exchange_quantity = best_bid.exchange.get_balance(base_currency)
+        bid_exchange_quantity = best_bid.exchange.get_balance(base_currency) or best_bid_quantity  # TEMP!!!
 
         # We take the lowest volume as it's our limit
         order_quantity = min(best_ask_quantity, ask_exchange_quantity, best_bid_quantity, bid_exchange_quantity)
