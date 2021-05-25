@@ -59,7 +59,9 @@ class OrderBook(object):
     @staticmethod
     # TODO: Check this fee calculation.
     def _find_fee_tier(trading_fees_data, quantity, taker_or_maker='taker'):
-        fee_tiers = trading_fees_data['tiers'][taker_or_maker]
+        fee_tiers = trading_fees_data['tiers'].get(taker_or_maker)
+        if not fee_tiers:
+            fee_tiers = trading_fees_data['tiers']['spot'][taker_or_maker]
         # Loop tiers reversed to simplify the check
         for tier in fee_tiers[::-1]:
             if quantity >= tier[0]:
@@ -69,7 +71,7 @@ class OrderBook(object):
 
     def _calculate_price_with_fee(self, price, quantity, taker_or_maker='taker'):
         trading_fees_data = self.exchange_market.trading_fees
-        if trading_fees_data.get('tierBased', False) is True:
+        if trading_fees_data.get('tierBased', False) is True and trading_fees_data.get('tiers'):
             trading_fee = self._find_fee_tier(trading_fees_data, quantity, taker_or_maker=taker_or_maker)
         else:
             trading_fee = trading_fees_data[taker_or_maker]

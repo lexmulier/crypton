@@ -9,8 +9,8 @@ from models import db
 
 EXCHANGE_CONFIGS = {
     "liquid": LIQUID_CONFIG,
-    "timex": TIMEX_CONFIG,
-    "ascendex": ASCENDEX_CONFIG,
+    #"timex": TIMEX_CONFIG,
+    "bitmax": ASCENDEX_CONFIG,
     "latoken": LATOKEN_CONFIG,
     "kucoin": KUCOIN_CONFIG,
     "kraken": KRAKEN_CONFIG,
