@@ -17,6 +17,8 @@ EXCHANGE_CONFIGS = {
 
 class CryptonExplore(Crypton):
 
+    MIN_ARBITRAGE_PERCENTAGE = 1.5
+
     def __init__(self, *args, **kwargs):
         super(CryptonExplore, self).__init__(*args, **kwargs)
 
@@ -38,41 +40,60 @@ class CryptonExplore(Crypton):
         return best_ask, best_bid
 
     async def _check_arbitrage(self, exchange_left, exchange_right, symbol):
+        timestamp = datetime.datetime.now()
+
         left_ask_and_bid = asyncio.create_task(self._query_exchange(exchange_left, symbol))
         right_ask_and_bid = asyncio.create_task(self._query_exchange(exchange_right, symbol))
         await left_ask_and_bid
         await right_ask_and_bid
-        self.notify('Got both!')
 
+        left_best_ask, left_best_bid = left_ask_and_bid.result()
+        right_best_ask, right_best_bid = right_ask_and_bid.result()
 
-        return
+        if any(not x for x in [left_best_ask, left_best_bid, right_best_ask, right_best_bid]):
+            return
 
-        # for symbol in market_symbols:
-        #     timestamp = datetime.datetime.now()
-        #     for exchange in self.exchanges.values():
-        #         exchange_market = exchange.markets[symbol]
-        #         success, best_ask, best_bid = exchange_market.get_order(limit=1)
-        #
-        #         if success is False:
-        #             self.notify(exchange.exchange_id, "Couldn't reach")
-        #             continue
-        #
-        #         self._insert_prices(exchange_market, best_ask, best_bid, timestamp)
-        #
-        #     self.sleep()
+        # TODO: Am I sure that the one with the best asking price and the best bid is always the only arbitrage?
+        # Can't there still be arbitrage the other way around?
+        best_ask = min(left_best_ask, right_best_ask)
+        best_bid = max(left_best_bid, right_best_bid)
 
-    def _insert_prices(self, market, ask, bid, timestamp):
+        # Check if the best ask and best bid are on different exchanges.
+        if best_ask.exchange_id == best_bid.exchange_id:
+            self.notify("Skipping: Best ask and best bid are on the same exchange")
+            return
+
+        # Check if the best asking price with fee is lower than the best asking bid with fee
+        margin_percentage = (((best_bid.price - best_ask.price) / best_ask.price) * 100.0)
+        if (((best_bid.price - best_ask.price) / best_ask.price) * 100.0) < self.MIN_ARBITRAGE_PERCENTAGE:
+            self.notify("Skipping: There is no arbitrage")
+            return
+
+        self._insert_arbitrage_opportunity(symbol, best_ask, best_bid, margin_percentage, timestamp)
+
+    def _insert_arbitrage_opportunity(self, symbol, ask, bid, margin_percentage, timestamp):
         data = {
-            "market": market.symbol,
-            "exchange": market.exchange.exchange_id,
-            "ask": ask.price,
-            "bid": bid.price,
+            "market": symbol,
+            "ask_exchange": ask.exchange.exchange_id,
+            "bid_exchange": bid.exchange.exchange_id,
+            "arbitrage_margin": margin_percentage,
+            "ask_price": ask.price,
+            "ask_quantity": ask.quantity,
+            "bid_price": bid.price,
+            "bid_quantity": bid.quantity,
+            "date": timestamp
         }
 
-        self.notify("{} on {} | ask {} - bid {}".format(*data.values()))
+        self.notify(
+            "ARBITRAGE: {} & {} | {} : {}".format(
+                data["ask_exchange"],
+                data["bid_exchange"],
+                symbol,
+                margin_percentage
+            )
+        )
 
-        data["date"] = timestamp
-        db.client.explore.insert_one(data)
+        db.client.arbitrage_opportunity.insert_one(data)
 
     def start(self):
         while True:
@@ -84,7 +105,7 @@ class CryptonExplore(Crypton):
                         symbol
                     ))
                     asyncio.run(self._check_arbitrage(exchange_left, exchange_right, symbol))
-            break  # For now
+                    self.sleep(seconds=0.5)
 
 
 if __name__ == "__main__":
