@@ -56,7 +56,7 @@ class Exchange(object):
     def get_balance_fake(self, symbol):
         # TODO: REMOVE!!
         from random import randrange
-        return randrange(1, 500)
+        return randrange(100000, 100000000)
 
     @handle_bad_requests()
     def retrieve_exchange_balances(self):
@@ -97,8 +97,9 @@ class ExchangeMarket(object):
     @handle_bad_requests()
     def trading_fees(self):
         try:
-            trading_fees = self.exchange.client.fetch_trading_fees(self.symbol)
+            trading_fees = self.exchange.client.fetch_trading_fee(self.symbol)
         except (ccxt.NotSupported, ValueError):
+            self.exchange.notify("Error retrieving fee's, using hardcoded...")
             trading_fees = self.exchange.client.fees.get('trading', {})
         return trading_fees
 

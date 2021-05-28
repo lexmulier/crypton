@@ -1,5 +1,6 @@
 class OrderBook(object):
     _type = None
+    _taker_or_maker = None
 
     first_price = None
     first_quantity = None
@@ -69,12 +70,12 @@ class OrderBook(object):
         # Return first tier if nothing matched
         return fee_tiers[0][1]
 
-    def _calculate_price_with_fee(self, price, quantity, taker_or_maker='taker'):
+    def _calculate_price_with_fee(self, price, quantity):
         trading_fees_data = self.exchange_market.trading_fees
         if trading_fees_data.get('tierBased', False) is True and trading_fees_data.get('tiers'):
-            trading_fee = self._find_fee_tier(trading_fees_data, quantity, taker_or_maker=taker_or_maker)
+            trading_fee = self._find_fee_tier(trading_fees_data, quantity, taker_or_maker=self._taker_or_maker)
         else:
-            trading_fee = trading_fees_data[taker_or_maker]
+            trading_fee = trading_fees_data[self._taker_or_maker]
 
         if trading_fees_data.get('percentage', True) is True:
             return price * (1.0 + trading_fee)
@@ -93,7 +94,8 @@ class BestOrderBookBid(OrderBook):
     """
     The bid price is the highest price a potential buyer is willing to pay for a crypto.
     """
-    _type = 'BID'
+    _type = "BID"
+    _taker_or_maker = "taker"
 
     def __init__(self, exchange_market, exchange, bids):
         super(BestOrderBookBid, self).__init__(exchange_market, exchange)
@@ -141,7 +143,8 @@ class BestOrderBookAsk(OrderBook):
     """
     The ask price is the lowest price a would-be seller is willing to accept for a crypto
     """
-    _type = 'ASK'
+    _type = "ASK"
+    _taker_or_maker = "taker"
 
     def __init__(self, exchange_market, exchange, asks):
         super(BestOrderBookAsk, self).__init__(exchange_market, exchange)
