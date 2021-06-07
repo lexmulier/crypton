@@ -63,6 +63,8 @@ class Exchange(object):
             if self.preload_market:
                 await self.markets[self.preload_market].preload()
 
+            await self.client.close()
+
         self.client = None
 
     def get_balance(self, symbol):
@@ -84,7 +86,7 @@ class ExchangeMarket(object):
     #@handle_bad_requests()
     async def _retrieve_trading_fees(self):
         self.trading_fees = await self.exchange.client.fetch_fees(self.symbol)
-        self.exchange.notify("market {} loading".format(self.symbol))
+        self.exchange.notify("Preparing market {} by preloading specific info".format(self.symbol))
 
     async def preload(self):
         await self._retrieve_trading_fees()

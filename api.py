@@ -1,13 +1,14 @@
-import asyncio
 import hashlib
 import hmac
+import logging
 
-import aiohttp
 import time
 import base64
 
-import ccxt.async_support as ccxt_async
-import ccxt
+import ccxt.async_support as ccxt
+
+# Shut up the stupid closing message from CCXT. I think it's a bug.
+logging.getLogger("ccxt").setLevel(logging.CRITICAL)
 
 
 class APIBase(object):
@@ -60,11 +61,7 @@ class CcxtAPI(object):
 
     @property
     def client(self):
-        try:
-            exchange_class = getattr(ccxt_async, self.exchange.exchange_id)
-        except AttributeError:
-            self.exchange.notify("No Async support in CCXT for this Exchange")
-            exchange_class = getattr(ccxt, self.exchange.exchange_id)
+        exchange_class = getattr(ccxt, self.exchange.exchange_id)
         self.exchange.api_config["session"] = self.session_manager.session
         exchange = exchange_class(self.exchange.api_config)
         return exchange
