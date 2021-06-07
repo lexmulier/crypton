@@ -1,3 +1,6 @@
+import asyncio
+
+from aiohttp import ClientSession
 from bson import ObjectId
 
 from bot import Crypton
@@ -15,25 +18,24 @@ class CryptonTrade(Crypton):
 
     MIN_PROFIT_PERCENTAGE = 1.5
 
-    def __init__(self, *args, **kwargs):
-        super(CryptonTrade, self).__init__(*args, **kwargs)
+    def __init__(self, market, exchange_configs, *args, **kwargs):
+        self.market = market
+        super(CryptonTrade, self).__init__(exchange_configs, *args, **kwargs)
+
         self.trade_id = None
 
     def notify(self, *args):
         if self.verbose:
-            if self.trade_id is not None:
-                print("TRADE {}:".format(self.trade_id), *args)
-            else:
-                print(*args)
+            print("TRADE {}:".format(self.trade_id if self.trade_id else ""), *args)
 
-    def start(self, market_symbol, min_qty=0):
+    def start(self, min_qty=0):
         while True:
             self.sleep()
 
             self.notify("#" * 20)
             self.trade_id = ObjectId()
 
-            success, best_exchange_asks, best_exchange_bids = self.fetch_orders(market_symbol)
+            success, best_exchange_asks, best_exchange_bids = self.fetch_orders(self.market)
             if not success:
                 continue
 
@@ -95,20 +97,19 @@ class CryptonTrade(Crypton):
             )
 
     def fetch_orders(self, market_symbol):
-        best_exchange_asks = []
-        best_exchange_bids = []
-        for exchange in self.exchanges.values():
-            exchange_market = exchange.markets[market_symbol]
-            success, best_ask, best_bid = exchange_market.get_order()
+        loop = asyncio.get_event_loop()
+        success, best_exchange_asks, best_exchange_bids = loop.run_until_complete(self._fetch_orders(market_symbol))
+        return success, best_exchange_asks, best_exchange_bids
 
-            if success is False:
-                self.notify(exchange.exchange_id, "API Failed. We need to retry all Exchanges")
-                return False, [], []
+    async def _fetch_orders(self, market_symbol):
+        tasks = [exchange.markets[market_symbol].get_order() for exchange in self.exchanges.values()]
+        exchange1, exchange2 = await asyncio.gather(*tasks, return_exceptions=True)
 
-            best_exchange_asks.append(best_ask)
-            best_exchange_bids.append(best_bid)
+        success = exchange1[0] and exchange2[0]
+        best_exchange_asks = [exchange1[1], exchange2[1]]
+        best_exchange_bids = [exchange1[2], exchange2[2]]
 
-        return True, best_exchange_asks, best_exchange_bids
+        return success, best_exchange_asks, best_exchange_bids
 
     @staticmethod
     def get_exchange_balances(best_ask, best_bid):

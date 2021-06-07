@@ -1,76 +1,72 @@
-import ccxt
+import asyncio
 
 from orders import BestOrderBookAsk, BestOrderBookBid
+from session import SessionManager
 from utils import handle_bad_requests
+from api import get_client
 
 
 class Exchange(object):
 
     _required_config_keys = ["apiKey", "secret"]
+    client = None
 
-    def __init__(self, exchange_id, api_config, verbose=False):
+    def __init__(self, exchange_id, api_config, preload_market=None, verbose=False):
         self.exchange_id = exchange_id
         self.api_config = api_config
+        self.preload_market = preload_market
         self.verbose = verbose
 
         if any([key not in self.api_config for key in self._required_config_keys]):
             raise ValueError("Exchange configuration missing required input parameters")
 
-        # Initiate CCXT Exchange Class
-        self.client = self.initiate_exchange_class()
-
-        # Load all markets in the ExchangeMarket class
-        self.markets, self.market_symbols = self.initiate_markets()
-
-        # Load balance for this Exchange
-        self.balance = self.retrieve_exchange_balances()
+        self.markets = None
+        self.market_symbols = None
+        self.balance = None
 
     def notify(self, *args):
         if self.verbose:
             print("EXCHANGE {}:".format(self.exchange_id), *args)
 
-    def initiate_exchange_class(self):
-        exchange_class = getattr(ccxt, self.exchange_id)
-        exchange_api = exchange_class(self.api_config)
+    #@handle_bad_requests()
+    async def retrieve_balance(self):
+        self.balance = await self.client.fetch_balance()
 
-        return exchange_api
-
-    @handle_bad_requests()
-    def initiate_markets(self):
-        markets = self.client.fetch_markets()
+    #@handle_bad_requests()
+    async def initiate_markets(self):
+        markets = await self.client.fetch_markets()
 
         market_symbols = []
         exchange_markets = {}
         for market in markets:
             market_symbol = market['symbol']
             market_symbols.append(market_symbol)
-            exchange_markets[market_symbol] = ExchangeMarket(self, market, verbose=self.verbose)
+            exchange_markets[market_symbol] = ExchangeMarket(
+                self,
+                market,
+                verbose=self.verbose
+            )
 
         self.notify("Found {} markets".format(len(exchange_markets)))
 
-        return exchange_markets, market_symbols
+        self.markets = exchange_markets
+        self.market_symbols = market_symbols
+
+    async def prepare(self):
+        async with SessionManager() as session_manager:
+            # Initiate API wrapper class
+            self.client = get_client(self, session_manager)
+
+            await self.initiate_markets()
+            await self.retrieve_balance()
+
+            if self.preload_market:
+                await self.markets[self.preload_market].preload()
+
+        self.client = None
 
     def get_balance(self, symbol):
         return self.balance.get(symbol, 0.0)
-
-    def get_balance_fake(self, symbol):
-        # TODO: REMOVE!!
-        from random import randrange
-        return randrange(100000, 100000000)
-
-    @handle_bad_requests()
-    def retrieve_exchange_balances(self):
-        response = self.client.fetch_balance()
-        balance_data = response.get("info")
-
-        balance = dict()
-        if isinstance(balance_data, list):
-            pass
-
-        elif isinstance(balance_data, dict):
-            balance = {row["asset"]: float(row["free"]) for row in balance_data.get("balances", {})}
-
-        return balance
 
 
 class ExchangeMarket(object):
@@ -83,6 +79,16 @@ class ExchangeMarket(object):
         self.info = market
         self.verbose = verbose
 
+        self.trading_fees = None
+
+    #@handle_bad_requests()
+    async def _retrieve_trading_fees(self):
+        self.trading_fees = await self.exchange.client.fetch_fees(self.symbol)
+        self.exchange.notify("market {} loading".format(self.symbol))
+
+    async def preload(self):
+        await self._retrieve_trading_fees()
+
     def get_market_info(self):
         market_info = self.exchange.markets_info.get(self.symbol)
         if market_info is None:
@@ -93,32 +99,14 @@ class ExchangeMarket(object):
             )
         return market_info
 
-    @property
-    @handle_bad_requests()
-    def trading_fees(self):
-        try:
-            trading_fees = self.exchange.client.fetch_trading_fee(self.symbol)
-        except (ccxt.NotSupported, ValueError):
-            self.exchange.notify("Error retrieving fee's, using hardcoded...")
-            trading_fees = self.exchange.client.fees.get('trading', {})
-        return trading_fees
-
     @handle_bad_requests(max_retries=1)
-    def get_order_book(self, limit=None):
-        open_orders = self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
-        return open_orders["asks"], open_orders["bids"]
-
-    def get_order_book_fake(self, limit=None):
-        # TODO: REMOVE!!
-        from random import randrange
-        variance = len(self.exchange.exchange_id)
-        asks = [[1000 + (10 * variance) + x + 2, randrange(1, 500)] for x in range(1, 50)]
-        bids = [[1000 + (10 * variance) + x, randrange(1, 500)] for x in range(1, 50)]
+    def get_order_book(self, session, limit=None):
+        asks, bids = self.exchange.client.fetch_order_book(session, symbol=self.symbol, limit=limit)
         return asks, bids
 
-    def get_order(self, limit=None):
+    def get_order(self, session, limit=None):
         try:
-            asks, bids = self.get_order_book(limit=limit)
+            asks, bids = self.get_order_book(session, limit=limit)
         except Exception as error:
             self.exchange.notify("Unsuccessful reaching market {}: {}".format(self.symbol, error))
             return False, None, None
