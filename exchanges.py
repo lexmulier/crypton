@@ -53,19 +53,12 @@ class Exchange(object):
         self.market_symbols = market_symbols
 
     async def prepare(self):
-        async with SessionManager() as session_manager:
-            # Initiate API wrapper class
-            self.client = get_client(self, session_manager)
-
+        async with SessionManager(self):
             await self.initiate_markets()
             await self.retrieve_balance()
 
             if self.preload_market:
                 await self.markets[self.preload_market].preload()
-
-            await self.client.close()
-
-        self.client = None
 
     def get_balance(self, symbol):
         return self.balance.get(symbol, 0.0)
@@ -101,17 +94,13 @@ class ExchangeMarket(object):
             )
         return market_info
 
-    @handle_bad_requests(max_retries=1)
-    def get_order_book(self, session, limit=None):
-        asks, bids = self.exchange.client.fetch_order_book(session, symbol=self.symbol, limit=limit)
-        return asks, bids
-
-    def get_order(self, session, limit=None):
-        try:
-            asks, bids = self.get_order_book(session, limit=limit)
-        except Exception as error:
-            self.exchange.notify("Unsuccessful reaching market {}: {}".format(self.symbol, error))
-            return False, None, None
+    async def get_order(self, limit=None):
+        async with SessionManager(self.exchange):
+            try:
+                asks, bids = await self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
+            except Exception as error:
+                self.exchange.notify("Unsuccessful reaching market {}: {}".format(self.symbol, error))
+                return False, None, None
 
         if not asks or not bids:
             self.exchange.notify("No Asks or Bids found for market", self.symbol)

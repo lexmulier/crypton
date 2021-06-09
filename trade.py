@@ -3,8 +3,10 @@ import asyncio
 from aiohttp import ClientSession
 from bson import ObjectId
 
+from api import get_client
 from bot import Crypton
 from config import *
+from session import SessionManager
 
 EXCHANGE_CONFIGS = {
     "binance": BINANCE_CONFIG,
@@ -19,6 +21,9 @@ class CryptonTrade(Crypton):
     MIN_PROFIT_PERCENTAGE = 1.5
 
     def __init__(self, market, exchange_configs, *args, **kwargs):
+        if len(exchange_configs) < 2:
+            raise ValueError("You need at least two exchanges to compare arbitrage")
+
         self.market = market
         super(CryptonTrade, self).__init__(exchange_configs, *args, **kwargs)
 
@@ -35,7 +40,7 @@ class CryptonTrade(Crypton):
             self.notify("#" * 20)
             self.trade_id = ObjectId()
 
-            success, best_exchange_asks, best_exchange_bids = self.fetch_orders(self.market)
+            success, best_exchange_asks, best_exchange_bids = self.fetch_orders()
             if not success:
                 continue
 
@@ -96,18 +101,17 @@ class CryptonTrade(Crypton):
                 )
             )
 
-    def fetch_orders(self, market_symbol):
+    def fetch_orders(self):
         loop = asyncio.get_event_loop()
-        success, best_exchange_asks, best_exchange_bids = loop.run_until_complete(self._fetch_orders(market_symbol))
-        return success, best_exchange_asks, best_exchange_bids
+        tasks = [exchange.markets[self.market].get_order() for exchange in self.exchanges.values()]
+        response = loop.run_until_complete(asyncio.gather(*tasks))
 
-    async def _fetch_orders(self, market_symbol):
-        tasks = [exchange.markets[market_symbol].get_order() for exchange in self.exchanges.values()]
-        exchange1, exchange2 = await asyncio.gather(*tasks, return_exceptions=True)
+        success_exchange1, best_ask_exchange1, best_bid_exchange1 = response[0]
+        success_exchange2, best_ask_exchange2, best_bid_exchange2 = response[1]
 
-        success = exchange1[0] and exchange2[0]
-        best_exchange_asks = [exchange1[1], exchange2[1]]
-        best_exchange_bids = [exchange1[2], exchange2[2]]
+        success = success_exchange1 and success_exchange2
+        best_exchange_asks = [best_ask_exchange1, best_ask_exchange1]
+        best_exchange_bids = [success_exchange2, success_exchange2]
 
         return success, best_exchange_asks, best_exchange_bids
 
@@ -115,12 +119,12 @@ class CryptonTrade(Crypton):
     def get_exchange_balances(best_ask, best_bid):
         # How much volume can I buy with my payment currency (we need to calculate it)
         quote_currency = best_ask.exchange_market.quote_coin
-        quote_currency_balance = best_ask.exchange.get_balance_fake(quote_currency)  # TODO: Replace function
+        quote_currency_balance = best_ask.exchange.get_balance(quote_currency)
         ask_exchange_qty = quote_currency_balance / best_ask.price_with_fee
 
         # How much volume can I sell due to how much I have in balance
         base_currency = best_bid.exchange_market.base_coin
-        bid_exchange_qty = best_bid.exchange.get_balance_fake(base_currency)  # TODO: Replace function
+        bid_exchange_qty = best_bid.exchange.get_balance(base_currency)
 
         return ask_exchange_qty, bid_exchange_qty
 

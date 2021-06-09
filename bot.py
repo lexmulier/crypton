@@ -7,6 +7,7 @@ from exchanges import Exchange
 class Crypton(object):
 
     _sleep_seconds = 1
+
     market = None
 
     def __init__(self, exchange_configs, verbose=False):
@@ -14,6 +15,7 @@ class Crypton(object):
         self.verbose = verbose
 
         self.exchanges = None
+
         self.initiate_exchanges()
 
     def initiate_exchanges(self):

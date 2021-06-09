@@ -55,14 +55,14 @@ class KuCoinAPI(APIBase):
 
 
 class CcxtAPI(object):
-    def __init__(self, exchange, session_manager):
+    def __init__(self, exchange, session):
         self.exchange = exchange
-        self.session_manager = session_manager
+        self.session = session
 
     @property
     def client(self):
         exchange_class = getattr(ccxt, self.exchange.exchange_id)
-        self.exchange.api_config["session"] = self.session_manager.session
+        self.exchange.api_config["session"] = self.session
         exchange = exchange_class(self.exchange.api_config)
         return exchange
 
@@ -96,15 +96,15 @@ class CcxtAPI(object):
 
         return balance
 
-    def fetch_order_book(self, symbol, limit=None):
-        response = self.exchange.client.fetch_order_book(symbol=symbol, limit=limit)
+    async def fetch_order_book(self, symbol, limit=None):
+        response = await self.client.fetch_order_book(symbol=symbol, limit=limit)
         return response["asks"], response["bids"]
 
     async def close(self):
         await self.client.close()
 
 
-def get_client(exchange, session_manager):
+def get_client(exchange, session):
     _api_class_mapping = {
         "ascendex": CcxtAPI,
         "binance": CcxtAPI,
@@ -119,7 +119,7 @@ def get_client(exchange, session_manager):
     if exchange.exchange_id not in _api_class_mapping:
         raise ValueError("API wrapper config for {} does not exist".format(exchange.exchange_id))
 
-    wrapper = _api_class_mapping[exchange.exchange_id](exchange, session_manager)
+    wrapper = _api_class_mapping[exchange.exchange_id](exchange, session)
     exchange.notify("Using API {} for {}".format(wrapper.__class__.__name__, exchange.exchange_id))
     return wrapper
 
