@@ -94,6 +94,7 @@ class ExchangeMarket(object):
             )
         return market_info
 
+    #@handle_bad_requests(max_retries=1)
     async def get_order(self, limit=None):
         async with SessionManager(self.exchange):
             try:

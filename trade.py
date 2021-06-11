@@ -1,12 +1,10 @@
 import asyncio
+import datetime
 
-from aiohttp import ClientSession
 from bson import ObjectId
 
-from api import get_client
 from bot import Crypton
 from config import *
-from session import SessionManager
 
 EXCHANGE_CONFIGS = {
     "binance": BINANCE_CONFIG,
@@ -18,7 +16,7 @@ EXCHANGE_CONFIGS = {
 
 class CryptonTrade(Crypton):
 
-    MIN_PROFIT_PERCENTAGE = 1.5
+    MIN_PROFIT_PERCENTAGE = 0.5
 
     def __init__(self, market, exchange_configs, *args, **kwargs):
         if len(exchange_configs) < 2:
@@ -31,14 +29,12 @@ class CryptonTrade(Crypton):
 
     def notify(self, *args):
         if self.verbose:
-            print("TRADE {}:".format(self.trade_id if self.trade_id else ""), *args)
+            print("TRADE {} {}:".format(self.trade_id if self.trade_id else "", datetime.datetime.now()), *args)
 
     def start(self, min_qty=0):
         while True:
-            self.sleep()
-
-            self.notify("#" * 20)
             self.trade_id = ObjectId()
+            self.notify("#" * 20)
 
             success, best_exchange_asks, best_exchange_bids = self.fetch_orders()
             if not success:
@@ -110,8 +106,8 @@ class CryptonTrade(Crypton):
         success_exchange2, best_ask_exchange2, best_bid_exchange2 = response[1]
 
         success = success_exchange1 and success_exchange2
-        best_exchange_asks = [best_ask_exchange1, best_ask_exchange1]
-        best_exchange_bids = [success_exchange2, success_exchange2]
+        best_exchange_asks = [best_ask_exchange1, best_ask_exchange2]
+        best_exchange_bids = [best_bid_exchange1, best_bid_exchange2]
 
         return success, best_exchange_asks, best_exchange_bids
 
@@ -125,6 +121,9 @@ class CryptonTrade(Crypton):
         # How much volume can I sell due to how much I have in balance
         base_currency = best_bid.exchange_market.base_coin
         bid_exchange_qty = best_bid.exchange.get_balance(base_currency)
+
+        ask_exchange_qty = best_ask.first_quantity
+        bid_exchange_qty = best_bid.first_quantity
 
         return ask_exchange_qty, bid_exchange_qty
 

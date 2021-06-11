@@ -120,6 +120,6 @@ def get_client(exchange, session):
         raise ValueError("API wrapper config for {} does not exist".format(exchange.exchange_id))
 
     wrapper = _api_class_mapping[exchange.exchange_id](exchange, session)
-    exchange.notify("Using API {} for {}".format(wrapper.__class__.__name__, exchange.exchange_id))
+    #exchange.notify("Using API {} for {}".format(wrapper.__class__.__name__, exchange.exchange_id))
     return wrapper
 
