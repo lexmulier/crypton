@@ -62,6 +62,7 @@ class Exchange(object):
 
 
 class ExchangeMarket(object):
+
     def __init__(self, exchange, market, verbose=False):
         self.exchange = exchange
         self.symbol = market['symbol']
@@ -73,14 +74,9 @@ class ExchangeMarket(object):
 
         self.trading_fees = None
 
-    #@handle_bad_requests()
     async def _retrieve_trading_fees(self):
         self.trading_fees = await self.exchange.client.fetch_fees(self.symbol)
         self.exchange.notify("Preparing market {} by preloading specific info".format(self.symbol))
-
-    async def retrieve_trading_fees(self):
-        async with SessionManager(self.exchange):
-            return await self._retrieve_trading_fees()
 
     async def preload(self):
         await self._retrieve_trading_fees()

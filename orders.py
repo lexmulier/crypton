@@ -1,6 +1,7 @@
 class OrderBook(object):
     _type = None
     _taker_or_maker = None
+    _default_fee_percentage = 0.005
 
     first_price = None
     first_quantity = None
@@ -78,6 +79,7 @@ class OrderBook(object):
             trading_fee = trading_fees_data[self._taker_or_maker]
 
         if trading_fees_data.get('percentage', True) is True:
+            trading_fee = trading_fee if trading_fee is not None else self._default_fee_percentage
             return price * (1.0 + trading_fee)
         else:
             return price + trading_fee
