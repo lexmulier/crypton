@@ -113,7 +113,7 @@ class BestOrderBookBid(OrderBook):
     def first_quantity(self):
         return self.bids[0][1]
 
-    def opportunity(self, lowest_ask_price_with_fee, balance_qty, min_allowed_qty):
+    def opportunity(self, lowest_ask_price_with_fee, balance_qty, min_qty):
         opportunities = []
         # Loop all bids in the response from the exchange
         for bid_row in self.bids:
@@ -124,7 +124,7 @@ class BestOrderBookBid(OrderBook):
             max_possible_qty = min(bid_qty, balance_qty)
 
             # If the maximum possible quantity is lower than what we allow, continue
-            if min_allowed_qty > max_possible_qty:
+            if min_qty > max_possible_qty:
                 continue
 
             # Calculate the bid price including the fee
@@ -162,7 +162,7 @@ class BestOrderBookAsk(OrderBook):
     def first_quantity(self):
         return self.asks[0][1]
 
-    def opportunity(self, highest_bid_price_with_fee, balance_qty, min_allowed_qty):
+    def opportunity(self, highest_bid_price_with_fee, balance_qty, min_qty):
         opportunities = []
         # Loop all bids in the response from the exchange
         for ask_row in self.asks:
@@ -173,7 +173,7 @@ class BestOrderBookAsk(OrderBook):
             max_possible_qty = min(ask_qty, balance_qty)
 
             # If the maximum possible quantity is lower than what we allow, continue
-            if min_allowed_qty > max_possible_qty:
+            if min_qty > max_possible_qty:
                 continue
 
             # Calculate the ask price including the fee

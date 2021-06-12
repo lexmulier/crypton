@@ -17,9 +17,6 @@ class Exchange(object):
         self.preload_market = preload_market
         self.verbose = verbose
 
-        if any([key not in self.api_config for key in self._required_config_keys]):
-            raise ValueError("Exchange configuration missing required input parameters")
-
         self.markets = None
         self.market_symbols = None
         self.balance = None
@@ -68,8 +65,8 @@ class ExchangeMarket(object):
     def __init__(self, exchange, market, verbose=False):
         self.exchange = exchange
         self.symbol = market['symbol']
-        self.base_coin = market['baseId']
-        self.quote_coin = market['quoteId']
+        self.base_coin = market.get('base', market.get('baseId'))
+        self.quote_coin = market.get('quote', market.get('quoteId'))
 
         self.info = market
         self.verbose = verbose
@@ -80,6 +77,10 @@ class ExchangeMarket(object):
     async def _retrieve_trading_fees(self):
         self.trading_fees = await self.exchange.client.fetch_fees(self.symbol)
         self.exchange.notify("Preparing market {} by preloading specific info".format(self.symbol))
+
+    async def retrieve_trading_fees(self):
+        async with SessionManager(self.exchange):
+            return await self._retrieve_trading_fees()
 
     async def preload(self):
         await self._retrieve_trading_fees()
@@ -107,7 +108,25 @@ class ExchangeMarket(object):
             self.exchange.notify("No Asks or Bids found for market", self.symbol)
             return False, None, None
 
-        best_ask = BestOrderBookAsk(self, self.exchange, asks)
+        best_ask = BestOrderBookAsk(self,  self.exchange, asks)
         best_bid = BestOrderBookBid(self, self.exchange, bids)
 
         return True, best_ask, best_bid
+
+    async def sell_order(self, order_type, qty, price, params=None):
+        return await self._create_order(order_type, "sell", qty, price, params=params)
+
+    async def buy_order(self, order_type, qty, price, params=None):
+        return await self._create_order(order_type, "buy", qty, price, params=params)
+
+    async def _create_order(self, order_type, side, qty, price, params=None):
+        async with SessionManager(self.exchange):
+            response = await self.exchange.client.create_order(
+                self.symbol,
+                order_type,
+                side,
+                qty,
+                price,
+                params=params
+            )
+            return response

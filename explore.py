@@ -9,12 +9,13 @@ from models import db
 
 EXCHANGE_CONFIGS = {
     "liquid": LIQUID_CONFIG,
-    #"timex": TIMEX_CONFIG,
+    "timex": TIMEX_CONFIG,
     "ascendex": ASCENDEX_CONFIG,
     "latoken": LATOKEN_CONFIG,
     "kucoin": KUCOIN_CONFIG,
     "kraken": KRAKEN_CONFIG,
-    "binance": BINANCE_CONFIG
+    "binance": BINANCE_CONFIG,
+    "dextrade": DEXTRADE_CONFIG
 }
 
 
@@ -22,44 +23,51 @@ class CryptonExplore(Crypton):
 
     MIN_ARBITRAGE_PERCENTAGE = 1.5
 
-    def __init__(self, *args, **kwargs):
-        super(CryptonExplore, self).__init__(*args, **kwargs)
+    def __init__(self, exchange_configs, compare_exchange=None, *args, **kwargs):
+        super(CryptonExplore, self).__init__(exchange_configs, *args, **kwargs)
+        self.compare_to = compare_exchange
 
     @property
     def exchange_pairs(self):
-        return [
+        pairs = [
             (exchange1, exchange2, set.intersection(*map(set, [exchange1.market_symbols, exchange2.market_symbols])))
             for exchange1, exchange2 in itertools.combinations(self.exchanges.values(), 2)
         ]
+        if self.compare_to:
+            pairs = [x for x in pairs if x[0].exchange_id == self.compare_to or x[1].exchange_id == self.compare_to]
 
-    async def _query_exchange(self, exchange, symbol):
-        exchange_market = exchange.markets[symbol]
-        success, best_ask, best_bid = exchange_market.get_order()
+        return pairs
 
-        if success is False:
-            self.notify("CHECK {}: Couldn't reach market {}".format(exchange.exchange_id, symbol))
-            return None, None
+    def fetch_orders(self, exchange_left, exchange_right, symbol):
+        loop = asyncio.get_event_loop()
+        tasks = [
+            exchange_left.markets[symbol].get_order(),
+            exchange_right.markets[symbol].get_order(),
+            exchange_left.markets[symbol].retrieve_trading_fees(),
+            exchange_right.markets[symbol].retrieve_trading_fees(),
+        ]
+        response = loop.run_until_complete(asyncio.gather(*tasks))
 
-        return best_ask, best_bid
+        success_exchange1, best_ask_exchange1, best_bid_exchange1 = response[0]
+        success_exchange2, best_ask_exchange2, best_bid_exchange2 = response[1]
 
-    async def _check_arbitrage(self, exchange_left, exchange_right, symbol):
+        success = success_exchange1 and success_exchange2
+        best_exchange_asks = [best_ask_exchange1, best_ask_exchange2]
+        best_exchange_bids = [best_bid_exchange1, best_bid_exchange2]
+
+        return success, best_exchange_asks, best_exchange_bids
+
+    def _check_arbitrage(self, exchange_left, exchange_right, symbol):
         timestamp = datetime.datetime.now()
 
-        left_ask_and_bid = asyncio.create_task(self._query_exchange(exchange_left, symbol))
-        right_ask_and_bid = asyncio.create_task(self._query_exchange(exchange_right, symbol))
-        await left_ask_and_bid
-        await right_ask_and_bid
-
-        left_best_ask, left_best_bid = left_ask_and_bid.result()
-        right_best_ask, right_best_bid = right_ask_and_bid.result()
-
-        if any(not x for x in [left_best_ask, left_best_bid, right_best_ask, right_best_bid]):
+        success, best_exchange_asks, best_exchange_bids = self.fetch_orders(exchange_left, exchange_right, symbol)
+        if not success:
             return
 
         # TODO: Am I sure that the one with the best asking price and the best bid is always the only arbitrage?
         # Can't there still be arbitrage the other way around?
-        best_ask = min(left_best_ask, right_best_ask)
-        best_bid = max(left_best_bid, right_best_bid)
+        best_ask = min(best_exchange_asks)
+        best_bid = max(best_exchange_bids)
 
         # Check if the best ask and best bid are on different exchanges.
         if best_ask.exchange_id == best_bid.exchange_id:
@@ -107,10 +115,10 @@ class CryptonExplore(Crypton):
                         exchange_right.exchange_id,
                         symbol
                     ))
-                    asyncio.run(self._check_arbitrage(exchange_left, exchange_right, symbol))
+                    self._check_arbitrage(exchange_left, exchange_right, symbol)
 
 
 if __name__ == "__main__":
-    bot = CryptonExplore(EXCHANGE_CONFIGS, verbose=True)
+    bot = CryptonExplore(EXCHANGE_CONFIGS, compare_exchange="dextrade", verbose=True)
     bot.start()
 

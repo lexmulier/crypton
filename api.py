@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import requests
 import logging
 
 import time
@@ -20,7 +21,47 @@ class APIBase(object):
 
     async def request(self, url):
         async with self.session.get(url) as response:
-            pass
+            assert response.status == 200
+            return await response.json()
+
+
+class DexTradeAPI(APIBase):
+    def __init__(self, exchange, session):
+        super(DexTradeAPI, self).__init__(exchange, session)
+        self.token, self.secret = self._login()
+
+    def _login(self):
+        url = "https://api.dex-trade.com/v1/login"
+        response = requests.post(url, json=self.config).json()
+        return response["token"], response["data"]["secret"]
+
+    async def fetch_order_book(self, symbol, limit=None):
+        url = "https://api.dex-trade.com/v1/public/book?pair={}".format(symbol.replace("/", ""))
+        response = await self.request(url)
+        asks = [[x["rate"], x["volume"]] for x in response["data"]["sell"]]
+        bids = [[x["rate"], x["volume"]] for x in response["data"]["buy"]]
+        return asks, bids
+
+    async def fetch_markets(self):
+        url = "https://api.dex-trade.com/v1/public/symbols"
+        response = await self.request(url)
+        markets = [
+            {"symbol": "{}/{}".format(x["base"], x["quote"]), "base": x["base"], "quote": x["quote"]}
+            for x in response["data"]
+        ]
+        return markets
+
+    # TODO: WIP
+    async def fetch_balance(self):
+        # url = "https://api.dex-trade.com/v1/private/balances"
+        # response = await self.request(url)
+        # balance = {row["asset"]: float(row["free"]) for row in response.get("balances", {})}
+        return {}
+
+    async def fetch_fees(self, _):
+        return {"maker": 0.1, "taker": 0.2}
+
+
 
 
 class KuCoinAPI(APIBase):
@@ -100,6 +141,11 @@ class CcxtAPI(object):
         response = await self.client.fetch_order_book(symbol=symbol, limit=limit)
         return response["asks"], response["bids"]
 
+    async def create_order(self, symbol, order_type, side, qty, price, params=None):
+        params = params if params else {}
+        response = await self.client.create_order(symbol, order_type, side, qty, price, params)
+        return response
+
     async def close(self):
         await self.client.close()
 
@@ -113,7 +159,8 @@ def get_client(exchange, session):
         "latoken": CcxtAPI,
         "kucoin": CcxtAPI,
         "kraken": CcxtAPI,
-        "binance": CcxtAPI
+        "binance": CcxtAPI,
+        "dextrade": DexTradeAPI,
     }
 
     if exchange.exchange_id not in _api_class_mapping:

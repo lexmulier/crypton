@@ -42,8 +42,6 @@ class CryptonTrade(Crypton):
 
             # Find the best opportunity based on ask/bid price, ask/bid quantity and available funds
             order_qty, best_ask, best_bid = self.get_best_opportunity(best_exchange_asks, best_exchange_bids, min_qty)
-            if order_qty <= 0.0:
-                continue
 
             # Check if there is arbitrage and adequate profit
             if not self.verify_arbitrage_and_profit(best_ask, best_bid, order_qty, min_qty):
@@ -51,9 +49,23 @@ class CryptonTrade(Crypton):
 
             self.notify("Order quantity:", order_qty)
 
-            self.initiate_order(best_ask, best_bid, order_qty)
+            self.initiate_orders(best_ask, best_bid, order_qty)
 
             break  # Temporary
+
+    def fetch_orders(self):
+        loop = asyncio.get_event_loop()
+        tasks = [exchange.markets[self.market].get_order() for exchange in self.exchanges.values()]
+        response = loop.run_until_complete(asyncio.gather(*tasks))
+
+        success_exchange1, best_ask_exchange1, best_bid_exchange1 = response[0]
+        success_exchange2, best_ask_exchange2, best_bid_exchange2 = response[1]
+
+        success = success_exchange1 and success_exchange2
+        best_exchange_asks = [best_ask_exchange1, best_ask_exchange2]
+        best_exchange_bids = [best_bid_exchange1, best_bid_exchange2]
+
+        return success, best_exchange_asks, best_exchange_bids
 
     def get_best_opportunity(self, best_exchange_asks, best_exchange_bids, min_qty):
         best_ask = min(best_exchange_asks)
@@ -72,12 +84,9 @@ class CryptonTrade(Crypton):
         self.notify(best_ask)
         self.notify(best_bid)
 
-        order_quantity = min(best_ask.best_quantity, best_bid.best_quantity)
+        order_qty = min(best_ask.best_quantity, best_bid.best_quantity)
 
-        if order_quantity <= 0.0:
-            self.notify("No good opportunity")
-
-        return order_quantity, best_ask, best_bid
+        return order_qty, best_ask, best_bid
 
     def check_enough_balance(self, best_ask, best_bid, ask_exchange_qty, bid_exchange_qty, minimal_qty):
         if minimal_qty > bid_exchange_qty:
@@ -97,19 +106,16 @@ class CryptonTrade(Crypton):
                 )
             )
 
-    def fetch_orders(self):
-        loop = asyncio.get_event_loop()
-        tasks = [exchange.markets[self.market].get_order() for exchange in self.exchanges.values()]
-        response = loop.run_until_complete(asyncio.gather(*tasks))
+    def initiate_orders(self, best_ask, best_bid, order_qty):
+        pass
+        # loop = asyncio.get_event_loop()
+        # tasks = [
+        #     best_ask.exchange_market.sell_order()
+        #     best_bid.exchange_market.buy_order()
+        # ]
+        # response = loop.run_until_complete(asyncio.gather(*tasks))
 
-        success_exchange1, best_ask_exchange1, best_bid_exchange1 = response[0]
-        success_exchange2, best_ask_exchange2, best_bid_exchange2 = response[1]
-
-        success = success_exchange1 and success_exchange2
-        best_exchange_asks = [best_ask_exchange1, best_ask_exchange2]
-        best_exchange_bids = [best_bid_exchange1, best_bid_exchange2]
-
-        return success, best_exchange_asks, best_exchange_bids
+        # WIP
 
     @staticmethod
     def get_exchange_balances(best_ask, best_bid):
@@ -122,6 +128,7 @@ class CryptonTrade(Crypton):
         base_currency = best_bid.exchange_market.base_coin
         bid_exchange_qty = best_bid.exchange.get_balance(base_currency)
 
+        # TODO: Temp
         ask_exchange_qty = best_ask.first_quantity
         bid_exchange_qty = best_bid.first_quantity
 
@@ -157,6 +164,10 @@ class CryptonTrade(Crypton):
             self.notify("Skipping: Best ask and best bid are on the same exchange")
             return False
 
+        if order_qty <= 0.0:
+            self.notify("Skipping: No good opportunity after comparing exchanges offers incl fees.")
+            return False
+
         # Check if the best asking price with fee is lower than the best asking bid with fee
         if best_ask >= best_bid:
             self.notify("Skipping: There is no arbitrage")
@@ -172,17 +183,4 @@ class CryptonTrade(Crypton):
             return False
 
         return True
-
-    def initiate_order(self, best_ask, best_bid, order_qty):
-        msg = "{} {} on {} for {} each"
-        self.notify(msg.format("Selling", order_qty, best_bid.exchange_id, best_bid.best_price_with_fee))
-        self.notify(msg.format("Buying", order_qty, best_ask.exchange_id, best_ask.best_price_with_fee))
-
-        bid_price = best_bid.best_price_with_fee
-        ask_price = best_ask.best_price_with_fee
-
-        profit_percentage = ((bid_price - ask_price) / ask_price) * 100.0
-        self.notify("Estimated profit {} {}".format(profit_percentage, best_bid.exchange_market.base_coin))
-
-        # WIP
 
