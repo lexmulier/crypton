@@ -1,9 +1,6 @@
-import asyncio
-
 from orders import BestOrderBookAsk, BestOrderBookBid
 from session import SessionManager
 from utils import handle_bad_requests
-from api import get_client
 
 
 class Exchange(object):

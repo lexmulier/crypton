@@ -1,22 +1,9 @@
 import datetime
-import itertools
 import asyncio
 
-from bot import Crypton
+from base import Crypton
 from config import *
 from models import db
-
-
-EXCHANGE_CONFIGS = {
-    "liquid": LIQUID_CONFIG,
-    "timex": TIMEX_CONFIG,
-    "ascendex": ASCENDEX_CONFIG,
-    #"latoken": LATOKEN_CONFIG,
-    "kucoin": KUCOIN_CONFIG,
-    "kraken": KRAKEN_CONFIG,
-    "binance": BINANCE_CONFIG,
-    "dextrade": DEXTRADE_CONFIG
-}
 
 
 class CryptonExplore(Crypton):
@@ -101,6 +88,18 @@ class CryptonExplore(Crypton):
 
 
 if __name__ == "__main__":
+    EXCHANGE_CONFIGS = {
+        # "liquid": LIQUID_CONFIG,
+        # "timex": TIMEX_CONFIG,
+        # "ascendex": ASCENDEX_CONFIG,
+        # "latoken": LATOKEN_CONFIG,
+        # "kucoin": KUCOIN_CONFIG,
+        # "kraken": KRAKEN_CONFIG,
+        "binance": BINANCE_CONFIG,
+        # "dextrade": DEXTRADE_CONFIG,
+        "indoex": INDOEX_CONFIG
+    }
+
     bot = CryptonExplore(EXCHANGE_CONFIGS, verbose=True)
     bot.start()
 

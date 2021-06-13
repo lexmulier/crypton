@@ -4,7 +4,7 @@ import ssl
 import certifi
 from aiohttp import TCPConnector, ClientSession
 
-from api import get_client
+from api.get_client import get_client
 
 
 class SessionManager(object):

@@ -3,7 +3,7 @@ import datetime
 
 from bson import ObjectId
 
-from bot import Crypton
+from base import Crypton
 from config import *
 
 EXCHANGE_CONFIGS = {
