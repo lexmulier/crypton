@@ -89,14 +89,14 @@ class CryptonExplore(Crypton):
 
 if __name__ == "__main__":
     EXCHANGE_CONFIGS = {
-        # "liquid": LIQUID_CONFIG,
-        # "timex": TIMEX_CONFIG,
-        # "ascendex": ASCENDEX_CONFIG,
+        "liquid": LIQUID_CONFIG,
+        "timex": TIMEX_CONFIG,
+        "ascendex": ASCENDEX_CONFIG,
         # "latoken": LATOKEN_CONFIG,
-        # "kucoin": KUCOIN_CONFIG,
-        # "kraken": KRAKEN_CONFIG,
+        "kucoin": KUCOIN_CONFIG,
+        "kraken": KRAKEN_CONFIG,
         "binance": BINANCE_CONFIG,
-        # "dextrade": DEXTRADE_CONFIG,
+        "dextrade": DEXTRADE_CONFIG,
         "indoex": INDOEX_CONFIG
     }
 
