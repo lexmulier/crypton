@@ -2,12 +2,14 @@ import logging
 
 from ccxt import async_support as ccxt
 
+from api.base import BaseAPI
+
 logging.getLogger("ccxt").setLevel(logging.CRITICAL)
 
 
-class CcxtAPI(object):
+class CcxtAPI(BaseAPI):
     def __init__(self, exchange):
-        self.exchange = exchange
+        super(CcxtAPI, self).__init__(exchange)
         self.session = None
 
     @property

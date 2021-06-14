@@ -2,10 +2,10 @@ import base64
 import hashlib
 import hmac
 
-from api.base import APIBase
+from api.base import BaseAPI
 
 
-class KuCoinAPI(APIBase):
+class KuCoinAPI(BaseAPI):
     _base_url = "https://api.kucoin.com"
 
     def __init__(self, exchange):
