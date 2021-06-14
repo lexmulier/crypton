@@ -15,14 +15,14 @@ class DexTradeAPI(APIBase):
 
     async def fetch_order_book(self, symbol, limit=None):
         url = "https://api.dex-trade.com/v1/public/book?pair={}".format(symbol.replace("/", ""))
-        response = await self.request(url)
+        response = await self.get(url)
         asks = [[x["rate"], x["volume"]] for x in response["data"]["sell"]]
         bids = [[x["rate"], x["volume"]] for x in response["data"]["buy"]]
         return asks, bids
 
     async def fetch_markets(self):
         url = "https://api.dex-trade.com/v1/public/symbols"
-        response = await self.request(url)
+        response = await self.get(url)
         markets = [
             {"symbol": "{}/{}".format(x["base"], x["quote"]), "base": x["base"], "quote": x["quote"]}
             for x in response["data"]
@@ -33,7 +33,7 @@ class DexTradeAPI(APIBase):
     async def fetch_balance(self):
         self.exchange.notify("NEEDS IMPROVEMENT")
         # url = "https://api.dex-trade.com/v1/private/balances"
-        # response = await self.request(url)
+        # response = await self.get(url)
         # balance = {row["asset"]: float(row["free"]) for row in response.get("balances", {})}
         return {}
 

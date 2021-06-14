@@ -6,33 +6,39 @@ from bson import ObjectId
 from base import Crypton
 from config import *
 
-EXCHANGE_CONFIGS = {
-    "binance": BINANCE_CONFIG,
-    #"kraken": KRAKEN_CONFIG,
-    #"kucoin": KUCOIN_CONFIG,
-    "latoken": LATOKEN_CONFIG
-}
-
 
 class CryptonTrade(Crypton):
 
     MIN_PROFIT_PERCENTAGE = 0.5
 
-    def __init__(self, market, exchange_configs, *args, **kwargs):
+    def __init__(
+            self,
+            market,
+            exchange_configs,
+            min_profit=None,
+            sleep=False,
+            *args,
+            **kwargs
+    ):
+
         if len(exchange_configs) < 2:
             raise ValueError("You need at least two exchanges to compare arbitrage")
 
         self.market = market
+        self.sleep = sleep
+        self.min_profit = min_profit if min_profit is not None else self.MIN_PROFIT_PERCENTAGE
         super(CryptonTrade, self).__init__(exchange_configs, *args, **kwargs)
 
         self.trade_id = None
 
     def notify(self, *args):
         if self.verbose:
-            print("TRADE {} {}:".format(self.trade_id if self.trade_id else "", datetime.datetime.now()), *args)
+            print("TRADE {}:".format(self.trade_id if self.trade_id else ""), *args)
 
     def start(self, min_qty=0):
         while True:
+            self.sleep_now()
+
             self.trade_id = ObjectId()
             self.notify("#" * 20)
 
@@ -50,6 +56,12 @@ class CryptonTrade(Crypton):
             self.notify("Order quantity:", order_qty)
 
             self.initiate_orders(best_ask, best_bid, order_qty)
+
+            # Check if orders are succesfull
+
+            # Save trade to database
+
+            # Fetch balance again
 
             break  # Temporary
 
@@ -107,13 +119,12 @@ class CryptonTrade(Crypton):
             )
 
     def initiate_orders(self, best_ask, best_bid, order_qty):
-        pass
-        # loop = asyncio.get_event_loop()
-        # tasks = [
-        #     best_ask.exchange_market.sell_order()
-        #     best_bid.exchange_market.buy_order()
-        # ]
-        # response = loop.run_until_complete(asyncio.gather(*tasks))
+        loop = asyncio.get_event_loop()
+        tasks = [
+            best_ask.exchange_market.sell_order(),
+            best_bid.exchange_market.buy_order()
+        ]
+        response = loop.run_until_complete(asyncio.gather(*tasks))
 
         # WIP
 
@@ -142,11 +153,11 @@ class CryptonTrade(Crypton):
         ask_price = best_ask.best_price_with_fee
 
         profit_percentage = ((bid_price - ask_price) / ask_price) * 100.0
-        percentage_margin = profit_percentage >= self.MIN_PROFIT_PERCENTAGE
+        percentage_margin = profit_percentage >= self.min_profit
 
         if not percentage_margin:
             msg = "Profit percentage {}% below min profit {}%"
-            msg = msg.format(profit_percentage, self.MIN_PROFIT_PERCENTAGE)
+            msg = msg.format(profit_percentage, self.min_profit)
             self.notify(msg)
 
         self.notify("Best offer has a profit margin of", profit_percentage)
@@ -184,3 +195,11 @@ class CryptonTrade(Crypton):
 
         return True
 
+
+if __name__ == "__main__":
+    EXCHANGE_CONFIGS = {
+        "kucoin": KUCOIN_CONFIG,
+        "ascendex": ASCENDEX_CONFIG
+    }
+    self = CryptonTrade("MITX/USDT", EXCHANGE_CONFIGS, sleep=True, verbose=True)
+    self.start()

@@ -6,9 +6,9 @@ logging.getLogger("ccxt").setLevel(logging.CRITICAL)
 
 
 class CcxtAPI(object):
-    def __init__(self, exchange, session):
+    def __init__(self, exchange):
         self.exchange = exchange
-        self.session = session
+        self.session = None
 
     @property
     def client(self):

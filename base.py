@@ -6,9 +6,10 @@ from exchanges import Exchange
 
 class Crypton(object):
 
-    _sleep_seconds = 1
+    _sleep_seconds = 0.1
 
     market = None
+    sleep = False
 
     def __init__(self, exchange_configs, verbose=False):
         self.exchange_configs = exchange_configs
@@ -38,9 +39,10 @@ class Crypton(object):
         tasks = [exchange.prepare() for exchange in self.exchanges.values()]
         loop.run_until_complete(asyncio.gather(*tasks))
 
-    def sleep(self, seconds=None):
-        seconds = seconds if seconds is not None else self._sleep_seconds
-        sleep(seconds)
+    def sleep_now(self, seconds=None):
+        if self.sleep:
+            seconds = seconds if seconds is not None else self._sleep_seconds
+            sleep(seconds)
 
     def notify(self, *args):
         if self.verbose:

@@ -1,3 +1,4 @@
+from api.get_client import get_client
 from orders import BestOrderBookAsk, BestOrderBookBid
 from session import SessionManager
 from utils import handle_bad_requests
@@ -6,7 +7,6 @@ from utils import handle_bad_requests
 class Exchange(object):
 
     _required_config_keys = ["apiKey", "secret"]
-    client = None
 
     def __init__(self, exchange_id, api_config, preload_market=None, verbose=False):
         self.exchange_id = exchange_id
@@ -17,6 +17,9 @@ class Exchange(object):
         self.markets = None
         self.market_symbols = None
         self.balance = None
+
+        self.client = get_client(self)
+        self.session_manager = SessionManager(self.client)
 
     def notify(self, *args):
         if self.verbose:
@@ -46,8 +49,12 @@ class Exchange(object):
         self.markets = exchange_markets
         self.market_symbols = market_symbols
 
+    async def fetch_exchange_specifics(self):
+        await self.client.fetch_exchange_specifics()
+
     async def prepare(self):
-        async with SessionManager(self):
+        async with self.session_manager:
+            await self.fetch_exchange_specifics()
             await self.initiate_markets()
             await self.retrieve_balance()
 
@@ -73,9 +80,9 @@ class ExchangeMarket(object):
 
     async def _retrieve_trading_fees(self):
         self.trading_fees = await self.exchange.client.fetch_fees(self.symbol)
-        self.exchange.notify("Preparing market {} by preloading specific info".format(self.symbol))
 
     async def preload(self):
+        self.exchange.notify("Preloading market info for {}".format(self.symbol))
         await self._retrieve_trading_fees()
 
     def get_market_info(self):
@@ -90,7 +97,7 @@ class ExchangeMarket(object):
 
     #@handle_bad_requests(max_retries=1)
     async def get_order(self, limit=None):
-        async with SessionManager(self.exchange):
+        async with self.exchange.session_manager:
             try:
                 asks, bids = await self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
             except Exception as error:
@@ -106,20 +113,20 @@ class ExchangeMarket(object):
 
         return True, best_ask, best_bid
 
-    async def sell_order(self, order_type, qty, price, params=None):
-        return await self._create_order(order_type, "sell", qty, price, params=params)
+    async def sell_order(self, _id, qty, price, params=None):
+        return await self._create_order(_id, "sell", qty, price, params=params)
 
-    async def buy_order(self, order_type, qty, price, params=None):
-        return await self._create_order(order_type, "buy", qty, price, params=params)
+    async def buy_order(self, _id, qty, price, params=None):
+        return await self._create_order(_id, "buy", qty, price, params=params)
 
-    async def _create_order(self, order_type, side, qty, price, params=None):
-        async with SessionManager(self.exchange):
+    async def _create_order(self, _id, side, qty, price, params=None):
+        async with self.exchange.session_manager:
             response = await self.exchange.client.create_order(
+                _id,
                 self.symbol,
-                order_type,
-                side,
                 qty,
                 price,
+                side,
                 params=params
             )
             return response

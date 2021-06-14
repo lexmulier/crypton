@@ -1,37 +1,119 @@
 import base64
 import hashlib
 import hmac
+import json
+
 import time
 
 from api.base import APIBase
 
 
 class KuCoinAPI(APIBase):
-    _base_url = "https://api.kucoin.com/api/v1/"
+    _base_url = "https://api.kucoin.com"
 
-    def __init__(self, exchange, session):
-        super(KuCoinAPI, self).__init__(exchange, session)
+    def __init__(self, exchange):
+        super(KuCoinAPI, self).__init__(exchange)
         self._api_key = self.config["apiKey"]
-        self._secret = self.config["secret"].encode('utf-8')
-        self._passphrase = self.config["KC-API-PASSPHRASE"].encode('utf-8')
-        self._password = self.config["password"]
+        self._secret = self.config["secret"].encode()
+        self._trading_password = self.config["trading_password"].encode()
+        self._password = self.config["password"].encode()
+
+    async def fetch_markets(self):
+        url = self._base_url + "/api/v1/symbols"
+        response = await self.get(url)
+        return [
+            {
+                "symbol": "{}/{}".format(x["baseCurrency"], x["quoteCurrency"]),
+                "base": x["baseCurrency"],
+                "quote": x["quoteCurrency"]
+            }
+            for x in response["data"]
+        ]
+
+    async def fetch_order_book(self, symbol, limit=None):
+        url = self._base_url + "/api/v1/market/orderbook/level2_{}?symbol={}".format(
+            limit or 20, symbol.replace("/", "-")
+        )
+        response = await self.get(url)
+        asks = [[float(x[0]), float(x[1])] for x in response["data"]["asks"]]
+        bids = [[float(x[0]), float(x[1])] for x in response["data"]["bids"]]
+        return asks, bids
+
+    async def fetch_fees(self, symbol):
+        endpoint = "/api/v1/trade-fees?symbols={}".format(symbol.replace("/", "-"))
+        url = self._base_url + endpoint
+        headers = self._get_headers(endpoint)
+        response = await self.get(url, headers=headers)
+        return {
+            "taker": float(response["data"][0]["takerFeeRate"]),
+            "maker": float(response["data"][0]["makerFeeRate"])
+        }
+
+    async def fetch_balance(self):
+        endpoint = "/api/v1/accounts"
+        url = self._base_url + endpoint
+        headers = self._get_headers(endpoint)
+        response = await self.get(url, headers=headers)
+        return {row["currency"]: float(row["available"]) for row in response["data"]}
+
+    async def create_order(self, _id, symbol, qty, price, side, _type=None, params=None):
+        endpoint = "/api/v1/orders"
+        url = self._base_url + endpoint
+        data = {
+            "clientOid": str(_id),
+            "side": side,
+            "symbol": symbol.replace("/", "-"),
+            "type": "limit",
+            "size": str(qty),
+            "price": str(price),
+            "timeInForce": "IOC",
+            "hidden": False,
+            "iceberg": False,
+        }
+
+        compact_data = self._compact_json_dict(data)
+        headers = self._get_headers(endpoint, method="POST", compact_data=compact_data)
+
+        response = await self.post(url, compact_data, headers=headers)
+
+        if "msg" in response:
+            self.exchange.notify("On create {} order call: {}".format(side, response["msg"]))
+
+        print(response)
 
     @property
     def _encoded_passphrase(self):
-        return base64.b64encode(hmac.new(self._secret, self._passphrase, hashlib.sha256).digest())
-
-    def _encoded_signature(self, now, method="GET", location="/api/v1/accounts"):
         return base64.b64encode(
-            self._secret,
-            str(now) + method + location,
-        )
+            hmac.new(self._secret, self._password, hashlib.sha256).digest()
+        ).decode()
 
-    def _get_headers(self):
-        now = str(int(time.time() * 1000))
+    @staticmethod
+    def _get_params_for_sig(data):
+        return '&'.join(["{}={}".format(key, data[key]) for key in data])
+
+    @staticmethod
+    def _compact_json_dict(data):
+        return json.dumps(data, separators=(',', ':'), ensure_ascii=False)
+
+    def _generate_signature(self, nonce, method, endpoint, data=None, compact_data=None):
+        data_json = ""
+        if method == "GET" and data:
+            query_string = self._get_params_for_sig(data)
+            endpoint = "{}?{}".format(endpoint, query_string)
+        elif method == "POST" and compact_data:
+            data_json = compact_data
+        elif method == "POST" and data:
+            data_json = self._compact_json_dict(data)
+        sig_str = ("{}{}{}{}".format(nonce, method.upper(), endpoint, data_json)).encode('utf-8')
+        m = hmac.new(self._secret, sig_str, hashlib.sha256)
+        return base64.b64encode(m.digest()).decode()
+
+    def _get_headers(self, endpoint, method="GET", data=None, compact_data=None):
+        nonce = self._nonce()
         return {
-            "KC-API-SIGN": self._encoded_signature(now),
-            "KC-API-TIMESTAMP": str(now),
+            "KC-API-SIGN": self._generate_signature(nonce, method, endpoint, data=data, compact_data=compact_data),
+            "KC-API-TIMESTAMP": nonce,
             "KC-API-KEY": self._api_key,
             "KC-API-PASSPHRASE": self._encoded_passphrase,
-            "KC-API-KEY-VERSION": 2
+            "KC-API-KEY-VERSION": "2"
         }
