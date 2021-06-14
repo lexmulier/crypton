@@ -1,9 +1,6 @@
 import base64
 import hashlib
 import hmac
-import json
-
-import time
 
 from api.base import APIBase
 
@@ -74,12 +71,14 @@ class KuCoinAPI(APIBase):
         compact_data = self._compact_json_dict(data)
         headers = self._get_headers(endpoint, method="POST", compact_data=compact_data)
 
+        self.exchange.notify("Exchange order ID", _id)
         response = await self.post(url, compact_data, headers=headers)
 
-        if "msg" in response:
-            self.exchange.notify("On create {} order call: {}".format(side, response["msg"]))
+        if response.get('code') != '20000':
+            self.exchange.notify("Error on {} order: {}".format(side, response.get("msg", "Error message N/A")))
+            return False, response
 
-        print(response)
+        return True, _id
 
     @property
     def _encoded_passphrase(self):
@@ -90,10 +89,6 @@ class KuCoinAPI(APIBase):
     @staticmethod
     def _get_params_for_sig(data):
         return '&'.join(["{}={}".format(key, data[key]) for key in data])
-
-    @staticmethod
-    def _compact_json_dict(data):
-        return json.dumps(data, separators=(',', ':'), ensure_ascii=False)
 
     def _generate_signature(self, nonce, method, endpoint, data=None, compact_data=None):
         data_json = ""

@@ -12,6 +12,7 @@ class OrderBook(object):
         self.exchange = exchange
         self.exchange_id = exchange.exchange_id
         self.opportunities = []
+        self.best_price = 0.0
         self.best_price_with_fee = 0.0
         self.best_quantity = 0.0
         self.best_offer = 0.0
@@ -22,7 +23,7 @@ class OrderBook(object):
             self.exchange_id,
             self.symbol,
             self.best_offer,
-            self.best_price_with_fee,
+            self.best_price,
             self.best_quantity,
             self.first_price,
             self.first_quantity
@@ -87,9 +88,10 @@ class OrderBook(object):
     def set_opportunity(self, opportunities):
         self.opportunities = sorted(opportunities, key=lambda x: x[-1], reverse=True)
         if opportunities:
-            self.best_price_with_fee = self.opportunities[0][0]
-            self.best_quantity = self.opportunities[0][1]
-            self.best_offer = self.opportunities[0][2]
+            self.best_price = self.opportunities[0][0]
+            self.best_price_with_fee = self.opportunities[0][1]
+            self.best_quantity = self.opportunities[0][2]
+            self.best_offer = self.opportunities[0][3]
 
 
 class BestOrderBookBid(OrderBook):
@@ -136,7 +138,12 @@ class BestOrderBookBid(OrderBook):
             if bid_price_with_fee > lowest_ask_price_with_fee:
 
                 # Calculate the opportunity for this particular offer
-                opportunities.append([bid_price, max_possible_qty, bid_price_with_fee * max_possible_qty])
+                opportunities.append([
+                    bid_price,
+                    bid_price_with_fee,
+                    max_possible_qty,
+                    bid_price_with_fee * max_possible_qty
+                ])
 
         self.set_opportunity(opportunities)
 
@@ -185,6 +192,11 @@ class BestOrderBookAsk(OrderBook):
             if ask_price_with_fee < highest_bid_price_with_fee:
 
                 # Calculate the opportunity for this particular offer
-                opportunities.append([ask_price, max_possible_qty, ask_price_with_fee * max_possible_qty])
+                opportunities.append([
+                    ask_price,
+                    ask_price_with_fee,
+                    max_possible_qty,
+                    ask_price_with_fee * max_possible_qty
+                ])
 
         self.set_opportunity(opportunities)

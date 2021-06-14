@@ -121,16 +121,23 @@ class CryptonTrade(Crypton):
     def initiate_orders(self, best_ask, best_bid, order_qty):
         loop = asyncio.get_event_loop()
         tasks = [
-            best_ask.exchange_market.sell_order(),
-            best_bid.exchange_market.buy_order()
+            best_ask.exchange_market.buy_order(self.trade_id, order_qty, best_ask.best_price),
+            best_bid.exchange_market.sell_order(self.trade_id, order_qty, best_bid.best_price)
         ]
         response = loop.run_until_complete(asyncio.gather(*tasks))
+
+        success, sell_exchange_order_id = response[0]
+        if not success:
+
+
+        success, buy_exchange_order_id = response[1]
 
         # WIP
 
     @staticmethod
     def get_exchange_balances(best_ask, best_bid):
         # How much volume can I buy with my payment currency (we need to calculate it)
+        # TODO: Is this what I'm doing correct?
         quote_currency = best_ask.exchange_market.quote_coin
         quote_currency_balance = best_ask.exchange.get_balance(quote_currency)
         ask_exchange_qty = quote_currency_balance / best_ask.price_with_fee

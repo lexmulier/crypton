@@ -1,3 +1,5 @@
+import json
+
 import time
 
 
@@ -31,6 +33,10 @@ class APIBase(object):
     @staticmethod
     async def fetch_exchange_specifics():
         return None
+
+    @staticmethod
+    def _compact_json_dict(data):
+        return json.dumps(data, separators=(',', ':'), ensure_ascii=False)
 
     @staticmethod
     def _nonce():

@@ -121,7 +121,7 @@ class ExchangeMarket(object):
 
     async def _create_order(self, _id, side, qty, price, params=None):
         async with self.exchange.session_manager:
-            response = await self.exchange.client.create_order(
+            return await self.exchange.client.create_order(
                 _id,
                 self.symbol,
                 qty,
@@ -129,4 +129,3 @@ class ExchangeMarket(object):
                 side,
                 params=params
             )
-            return response

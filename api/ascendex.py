@@ -69,6 +69,7 @@ class AscendexAPI(APIBase):
         url = self._private_base_url + "/api/pro/v1/cash/order"
         nonce = self._nonce()
         exchange_order_id = self._create_order_id(_id, nonce)
+
         data = {
             "id": exchange_order_id,
             "time": nonce,
@@ -79,14 +80,18 @@ class AscendexAPI(APIBase):
             "side": side,
             "timeInForce": "IOC"
         }
-        print(data)
+
+        compact_data = self._compact_json_dict(data)
         headers = self._get_headers("order", nonce)
-        print(headers)
-        response = await self.post(url, data, headers=headers)
 
-        print(response)
+        self.exchange.notify("Exchange order ID", exchange_order_id)
+        response = await self.post(url, compact_data, headers=headers)
 
-        return exchange_order_id
+        if response.get('code', 0) != 0:
+            self.exchange.notify("Error on {} order: {}".format(side, response.get("message", "Error message N/A")))
+            return False, response
+
+        return True, exchange_order_id
 
     def _create_order_id(self, _id, nonce, source="a"):
         return (source + format(int(nonce), 'x')[-11:] + self._uuid[-11:] + str(_id)[-9:])[:32]
