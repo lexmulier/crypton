@@ -1,7 +1,7 @@
-from api.base import APIBase
+from api.base import BaseAPI
 
 
-class IndoExAPI(APIBase):
+class IndoExAPI(BaseAPI):
     def __init__(self, exchange, session):
         super(IndoExAPI, self).__init__(exchange, session)
 

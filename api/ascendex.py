@@ -4,10 +4,10 @@ import hmac
 
 import time
 
-from api.base import APIBase
+from api.base import BaseAPI
 
 
-class AscendexAPI(APIBase):
+class AscendexAPI(BaseAPI):
 
     _big_coins = [
         'BTC', 'ETH', 'XRP', 'USDT', 'BCH', 'LTC', 'EOS', 'BNB', 'BSV',

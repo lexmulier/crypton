@@ -3,7 +3,7 @@ import json
 import time
 
 
-class APIBase(object):
+class BaseAPI(object):
 
     def __init__(self, exchange, *args, **kwargs):
         self.exchange = exchange

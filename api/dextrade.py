@@ -1,9 +1,9 @@
 import requests
 
-from api.base import APIBase
+from api.base import BaseAPI
 
 
-class DexTradeAPI(APIBase):
+class DexTradeAPI(BaseAPI):
     def __init__(self, exchange, session):
         super(DexTradeAPI, self).__init__(exchange, session)
         self.token, self.secret = self._login()
