@@ -129,3 +129,7 @@ class ExchangeMarket(object):
                 side,
                 params=params
             )
+
+    async def cancel_order(self, order_id):
+        async with self.exchange.session_manager:
+            return await self.exchange.client.cancel_order(order_id, symbol=self.symbol)

@@ -5,29 +5,41 @@ import time
 
 class BaseAPI(object):
 
-    def __init__(self, exchange, *args, **kwargs):
+    def __init__(self, config, exchange=None, *args, **kwargs):
+        self.config = config
         self.exchange = exchange
-        self.config = exchange.api_config
-        self.config = exchange.api_config
         self.session = None
+
+    def notify(self, *args):
+        if self.exchange:
+            self.exchange.notify(*args)
+        else:
+            print(*args)
 
     async def get(self, url, headers=None):
         headers = headers or {}
         async with self.session.get(url, headers=headers) as response:
             return await response.json()
 
-    async def post(self, url, data, headers=None):
+    async def post(self, url, data=None, headers=None):
         headers = headers or {}
+        data = data or {}
         headers["Content-Type"] = "application/json"
         async with self.session.post(url, data=data, headers=headers) as response:
             return await response.json()
 
+    async def delete(self, url, data=None, headers=None):
+        headers = headers or {}
+        data = data or {}
+        async with self.session.delete(url, data=data, headers=headers) as response:
+            return await response.json()
+
     async def fetch_balance(self):
-        self.exchange.notify("Using not implemented fetch_balance")
+        self.notify("Using not implemented fetch_balance")
         return {}
 
     async def fetch_fees(self, _):
-        self.exchange.notify("Using not implemented fetch_fees")
+        self.notify("Using not implemented fetch_fees")
         return {"maker": 0.2, "taker": 0.2}
 
     @staticmethod
@@ -41,3 +53,6 @@ class BaseAPI(object):
     @staticmethod
     def _nonce():
         return str(int(time.time() * 1000))
+
+    def cancel_order(self, order_id, *args, **kwargs):
+        raise NotImplemented("cancel_order is not implemented here")

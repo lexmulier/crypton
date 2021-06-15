@@ -53,9 +53,7 @@ class CryptonTrade(Crypton):
             if not self.verify_arbitrage_and_profit(best_ask, best_bid, order_qty, min_qty):
                 continue
 
-            self.notify("Order quantity:", order_qty)
-
-            self.initiate_orders(best_ask, best_bid, order_qty)
+            success, sell_order_id, buy_order_id = self.initiate_orders(best_ask, best_bid, order_qty)
 
             # Check if orders are succesfull
 
@@ -119,6 +117,17 @@ class CryptonTrade(Crypton):
             )
 
     def initiate_orders(self, best_ask, best_bid, order_qty):
+        msg = "{} @ {}: quantity={} | price={}"
+        self.notify(msg.format("BUYING ", best_ask.exchange_id, order_qty, best_ask.best_price))
+        self.notify(msg.format("SELLING", best_bid.exchange_id, order_qty, best_bid.best_price))
+        
+        # TRADE 60c7a295e2a82c2313c4fa8c: ####################
+        # TRADE 60c7a295e2a82c2313c4fa8c: ASK(kucoin, MITX/USDT, offer=6.617618579519999, price=0.0624, qty=105.8399, first_price=0.0605, first_qty=105.8399)
+        # TRADE 60c7a295e2a82c2313c4fa8c: BID(ascendex, MITX/USDT, offer=7.797271199999999, price=0.057502, qty=113.0, first_price=0.057502, first_qty=113.0)
+        # TRADE 60c7a295e2a82c2313c4fa8c: Best offer has a profit margin of 10.360049132504223
+        # TRADE 60c7a295e2a82c2313c4fa8c: BUYING  @ kucoin: quantity=105.8399 | price=0.0624
+        # TRADE 60c7a295e2a82c2313c4fa8c: SELLING @ ascendex: quantity=105.8399 | price=0.057502
+
         loop = asyncio.get_event_loop()
         tasks = [
             best_ask.exchange_market.buy_order(self.trade_id, order_qty, best_ask.best_price),
@@ -126,13 +135,29 @@ class CryptonTrade(Crypton):
         ]
         response = loop.run_until_complete(asyncio.gather(*tasks))
 
-        success, sell_exchange_order_id = response[0]
-        if not success:
+        buy_order_success, buy_order_id = response[0]
+        sell_order_success, sell_order_id = response[1]
 
+        if not any([sell_order_success, buy_order_success]):
+            self.notify("Error! Cancelling both (sell: {}, buy: {})".format(sell_order_id, buy_order_id))
+            self.cancel_orders(best_ask, best_bid, sell_order_id, buy_order_id)
+            return False, None, None
 
-        success, buy_exchange_order_id = response[1]
+        return True, sell_order_id, buy_order_id
 
-        # WIP
+    @staticmethod
+    def cancel_orders(best_ask, best_bid, sell_order_id, buy_order_id):
+        loop = asyncio.get_event_loop()
+        tasks = [
+            best_ask.exchange_market.cancel_order(buy_order_id),
+            best_bid.exchange_market.cancel_order(sell_order_id)
+        ]
+        response = loop.run_until_complete(asyncio.gather(*tasks))
+
+        best_ask.exchange.notify("Cancelled order {} success: {}".format(buy_order_id, response[0][0]))
+        best_bid.exchange.notify("Cancelled order {} success: {}".format(sell_order_id, response[1][0]))
+
+        return response[0][0] and response[1][0]
 
     @staticmethod
     def get_exchange_balances(best_ask, best_bid):

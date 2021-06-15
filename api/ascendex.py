@@ -17,8 +17,8 @@ class AscendexAPI(BaseAPI):
     _base_url = "https://ascendex.com"
     _private_base_url = "https://ascendex.com/6"
 
-    def __init__(self, exchange):
-        super(AscendexAPI, self).__init__(exchange)
+    def __init__(self, *args, **kwargs):
+        super(AscendexAPI, self).__init__(*args, **kwargs)
         self._api_key = self.config["apiKey"]
         self._secret = base64.b64decode(self.config["secret"])
         self._uuid = None
@@ -78,20 +78,39 @@ class AscendexAPI(BaseAPI):
             "orderQty": str(qty),
             "orderType": "limit",
             "side": side,
-            "timeInForce": "IOC"
+            #"timeInForce": "IOC"
         }
 
         compact_data = self._compact_json_dict(data)
         headers = self._get_headers("order", nonce)
 
-        self.exchange.notify("Exchange order ID", exchange_order_id)
+        self.notify("Exchange order ID", exchange_order_id)
         response = await self.post(url, compact_data, headers=headers)
 
         if response.get('code', 0) != 0:
-            self.exchange.notify("Error on {} order: {}".format(side, response.get("message", "Error message N/A")))
+            self.notify("Error on {} order: {}".format(side, response.get("message", "Error message N/A")))
             return False, response
 
         return True, exchange_order_id
+
+    async def cancel_order(self, order_id, symbol=None, *args, **kwargs):
+        url = self._private_base_url + "/api/pro/v1/cash/order"
+        nonce = self._nonce()
+        data = {
+            "id": order_id,
+            "orderId": order_id,
+            "symbol": symbol,
+            "time": nonce
+        }
+        compact_data = self._compact_json_dict(data)
+        headers = self._get_headers("order", nonce)
+        response = await self.delete(url, data=compact_data, headers=headers)
+
+        if response.get('code', 0) != 0:
+            self.notify("Error on cancel order: {}".format(response.get("message", "Error message N/A")))
+            return response
+
+        return response['data']['status'] == 'Ack'
 
     def _create_order_id(self, _id, nonce, source="a"):
         return (source + format(int(nonce), 'x')[-11:] + self._uuid[-11:] + str(_id)[-9:])[:32]

@@ -8,22 +8,22 @@ logging.getLogger("ccxt").setLevel(logging.CRITICAL)
 
 
 class CcxtAPI(BaseAPI):
-    def __init__(self, exchange):
-        super(CcxtAPI, self).__init__(exchange)
+    def __init__(self, *args, **kwargs):
+        super(CcxtAPI, self).__init__(*args, **kwargs)
         self.session = None
 
     @property
     def client(self):
         exchange_class = getattr(ccxt, self.exchange.exchange_id)
-        self.exchange.api_config["session"] = self.session
-        exchange = exchange_class(self.exchange.api_config)
+        self.config["session"] = self.session
+        exchange = exchange_class(self.config)
         return exchange
 
     async def fetch_fees(self, market):
         try:
             response = await self.client.fetch_trading_fee(market)
         except (ccxt.NotSupported, ValueError):
-            self.exchange.notify("Error retrieving fee's, using hardcoded...")
+            self.notify("Error retrieving fee's, using hardcoded...")
             response = self.client.fees.get('trading', {})
 
         if 'maker' not in response or 'taker' not in response:

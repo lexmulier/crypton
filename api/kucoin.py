@@ -8,8 +8,8 @@ from api.base import BaseAPI
 class KuCoinAPI(BaseAPI):
     _base_url = "https://api.kucoin.com"
 
-    def __init__(self, exchange):
-        super(KuCoinAPI, self).__init__(exchange)
+    def __init__(self, *args, **kwargs):
+        super(KuCoinAPI, self).__init__(*args, **kwargs)
         self._api_key = self.config["apiKey"]
         self._secret = self.config["secret"].encode()
         self._trading_password = self.config["trading_password"].encode()
@@ -71,14 +71,33 @@ class KuCoinAPI(BaseAPI):
         compact_data = self._compact_json_dict(data)
         headers = self._get_headers(endpoint, method="POST", compact_data=compact_data)
 
-        self.exchange.notify("Exchange order ID", _id)
-        response = await self.post(url, compact_data, headers=headers)
+        self.notify("Exchange order ID", _id)
+        response = await self.post(url, data=compact_data, headers=headers)
 
-        if response.get('code') != '20000':
-            self.exchange.notify("Error on {} order: {}".format(side, response.get("msg", "Error message N/A")))
+        if response.get('code') != '200000':
+            self.notify("Error on {} order: {}".format(side, response.get("msg", "Error message N/A")))
             return False, response
 
         return True, _id
+
+    async def cancel_order(self, order_id, *args, **kwargs):
+        endpoint = "/api/v1/order/client-order/{}".format(str(order_id))
+        url = self._base_url + endpoint
+        headers = self._get_headers(endpoint, method="DELETE")
+        response = await self.delete(url, headers=headers)
+
+        if response.get('code') != '200000':
+            self.notify("Error on cancel order: {}".format(response.get("msg", "Error message N/A")))
+            return False
+
+        return True
+
+    async def list_orders(self):
+        endpoint = "/api/v1/orders"
+        url = self._base_url + endpoint
+        headers = self._get_headers(endpoint)
+        response = await self.get(url, headers=headers)
+        return response
 
     @property
     def _encoded_passphrase(self):

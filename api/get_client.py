@@ -22,5 +22,5 @@ def get_client(exchange):
     if exchange.exchange_id not in API_CLASS_MAPPING:
         raise ValueError("API wrapper config for {} does not exist".format(exchange.exchange_id))
 
-    wrapper = API_CLASS_MAPPING[exchange.exchange_id](exchange)
+    wrapper = API_CLASS_MAPPING[exchange.exchange_id](exchange.api_config, exchange=exchange)
     return wrapper
