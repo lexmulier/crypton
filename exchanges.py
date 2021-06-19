@@ -1,5 +1,5 @@
 from api.get_client import get_client
-from orders import BestOrderBookAsk, BestOrderBookBid
+from orders import BestOrderAsk, BestOrderBid
 from session import SessionManager
 from utils import handle_bad_requests
 
@@ -96,7 +96,7 @@ class ExchangeMarket(object):
         return market_info
 
     #@handle_bad_requests(max_retries=1)
-    async def get_order(self, limit=None):
+    async def get_orders(self, limit=None):
         async with self.exchange.session_manager:
             try:
                 asks, bids = await self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
@@ -108,28 +108,7 @@ class ExchangeMarket(object):
             self.exchange.notify("No Asks or Bids found for market", self.symbol)
             return False, None, None
 
-        best_ask = BestOrderBookAsk(self,  self.exchange, asks)
-        best_bid = BestOrderBookBid(self, self.exchange, bids)
+        best_ask = BestOrderAsk(self, self.exchange, asks)
+        best_bid = BestOrderBid(self, self.exchange, bids)
 
         return True, best_ask, best_bid
-
-    async def sell_order(self, _id, qty, price, params=None):
-        return await self._create_order(_id, "sell", qty, price, params=params)
-
-    async def buy_order(self, _id, qty, price, params=None):
-        return await self._create_order(_id, "buy", qty, price, params=params)
-
-    async def _create_order(self, _id, side, qty, price, params=None):
-        async with self.exchange.session_manager:
-            return await self.exchange.client.create_order(
-                _id,
-                self.symbol,
-                qty,
-                price,
-                side,
-                params=params
-            )
-
-    async def cancel_order(self, order_id):
-        async with self.exchange.session_manager:
-            return await self.exchange.client.cancel_order(order_id, symbol=self.symbol)

@@ -1,31 +1,53 @@
-class OrderBook(object):
+class OrderBase(object):
     _type = None
     _taker_or_maker = None
-    _default_fee_percentage = 0.005
 
-    first_price = None
-    first_quantity = None
+    status_none = "NONE"
+    status_active = "ACTIVE"
+    status_failed = "FAILED"
+    status_filled = "FILLED"
+
+    first_price = 0.0
+    first_quantity = 0.0
 
     def __init__(self, exchange_market, exchange):
         self.exchange_market = exchange_market
         self.symbol = exchange_market.symbol
         self.exchange = exchange
         self.exchange_id = exchange.exchange_id
+
         self.opportunities = []
+
         self.best_price = 0.0
         self.best_price_with_fee = 0.0
         self.best_quantity = 0.0
         self.best_offer = 0.0
 
+        self.actual_price = 0.0
+        self.actual_price_with_fee = 0.0
+        self.actual_quantity = 0.0
+
+        self.timestamp = None
+        self.exchange_order_id = None
+        self.status = self.status_none
+
     def _generate_output(self):
-        return "{}({}, {}, offer={}, price={}, qty={}, first_price={}, first_qty={})".format(
+        if self.opportunities:
+            return "{}({}, {}, offer={}, best_price={}, best_price_with_fee={}, max_qty={})".format(
+                self._type,
+                self.exchange_id,
+                self.symbol,
+                self.best_offer,
+                self.best_price,
+                self.best_price_with_fee,
+                self.best_quantity,
+            )
+        return "{}({}, {}, first_price={}, first_price_with_fee={}, max_qty={})".format(
             self._type,
             self.exchange_id,
             self.symbol,
-            self.best_offer,
-            self.best_price,
-            self.best_quantity,
             self.first_price,
+            self.first_price_with_fee,
             self.first_quantity
         )
 
@@ -36,54 +58,31 @@ class OrderBook(object):
         return self._generate_output()
 
     def __lt__(self, other_exchange):
-        if self.best_offer and other_exchange.best_offer:
+        if self.opportunities and other_exchange.opportunities:
             return self.best_price_with_fee < other_exchange.best_price_with_fee
-        return self.price_with_fee < other_exchange.price_with_fee
+        return self.first_price_with_fee < other_exchange.first_price_with_fee
 
     def __le__(self, other_exchange):
-        if self.best_offer and other_exchange.best_offer:
+        if self.opportunities and other_exchange.opportunities:
             return self.best_price_with_fee <= other_exchange.best_price_with_fee
-        return self.price_with_fee <= other_exchange.price_with_fee
+        return self.first_price_with_fee <= other_exchange.first_price_with_fee
 
     def __gt__(self, other_exchange):
-        if self.best_offer and other_exchange.best_offer:
+        if self.opportunities and other_exchange.opportunities:
             return self.best_price_with_fee > other_exchange.best_price_with_fee
-        return self.price_with_fee > other_exchange.price_with_fee
+        return self.first_price_with_fee > other_exchange.first_price_with_fee
 
     def __ge__(self, other_exchange):
-        if self.best_offer and other_exchange.best_offer:
+        if self.opportunities and other_exchange.opportunities:
             return self.best_price_with_fee >= other_exchange.best_price_with_fee
-        return self.price_with_fee >= other_exchange.price_with_fee
+        return self.first_price_with_fee >= other_exchange.first_price_with_fee
 
     @property
-    def price_with_fee(self):
-        return self._calculate_price_with_fee(self.first_price, self.first_quantity)
+    def first_price_with_fee(self):
+        return self._calculate_price_with_fee(self.first_price)
 
-    @staticmethod
-    # TODO: Check this fee calculation.
-    def _find_fee_tier(trading_fees_data, quantity, taker_or_maker='taker'):
-        fee_tiers = trading_fees_data['tiers'].get(taker_or_maker)
-        if not fee_tiers:
-            fee_tiers = trading_fees_data['tiers']['spot'][taker_or_maker]
-        # Loop tiers reversed to simplify the check
-        for tier in fee_tiers[::-1]:
-            if quantity >= tier[0]:
-                return tier[1]
-        # Return first tier if nothing matched
-        return fee_tiers[0][1]
-
-    def _calculate_price_with_fee(self, price, quantity):
-        trading_fees_data = self.exchange_market.trading_fees
-        if trading_fees_data.get('tierBased', False) is True and trading_fees_data.get('tiers'):
-            trading_fee = self._find_fee_tier(trading_fees_data, quantity, taker_or_maker=self._taker_or_maker)
-        else:
-            trading_fee = trading_fees_data[self._taker_or_maker]
-
-        if trading_fees_data.get('percentage', True) is True:
-            trading_fee = trading_fee if trading_fee is not None else self._default_fee_percentage
-            return price * (1.0 + trading_fee)
-        else:
-            return price + trading_fee
+    def _calculate_price_with_fee(self, price):
+        return (1.0 + self.exchange_market.trading_fees[self._taker_or_maker]) * price
 
     def set_opportunity(self, opportunities):
         self.opportunities = sorted(opportunities, key=lambda x: x[-1], reverse=True)
@@ -93,8 +92,45 @@ class OrderBook(object):
             self.best_quantity = self.opportunities[0][2]
             self.best_offer = self.opportunities[0][3]
 
+    async def sell(self, _id, qty, price):
+        return await self._create_order(_id, "sell", qty, price)
 
-class BestOrderBookBid(OrderBook):
+    async def buy(self, _id, qty, price):
+        return await self._create_order(_id, "buy", qty, price)
+
+    async def _create_order(self, _id, side, qty, price):
+        self.status = self.status_active
+        async with self.exchange.session_manager:
+            success, order_id = await self.exchange.client.create_order(
+                _id,
+                self.symbol,
+                qty,
+                price,
+                side
+            )
+            self.exchange_order_id = order_id
+            if not success:
+                self.status = self.status_failed
+            return success
+
+    async def cancel(self):
+        async with self.exchange.session_manager:
+            return await self.exchange.client.cancel_order(self.exchange_order_id, symbol=self.symbol)
+
+    async def get_status(self):
+        async with self.exchange.session_manager:
+            result = await self.exchange.client.fetch_order_status(self.exchange_order_id)
+
+            self.actual_price = result["price"]
+            self.actual_price_with_fee = result["fee"] / (result["price"] * result["quantity"])
+            self.actual_quantity = result["quantity"]
+            self.timestamp = result["timestamp"]
+
+            if result["filled"] is True:
+                self.status = self.status_filled
+
+
+class BestOrderBid(OrderBase):
     """
     The bid price is the highest price a potential buyer is willing to pay for a crypto.
     """
@@ -102,7 +138,7 @@ class BestOrderBookBid(OrderBook):
     _taker_or_maker = "taker"
 
     def __init__(self, exchange_market, exchange, bids):
-        super(BestOrderBookBid, self).__init__(exchange_market, exchange)
+        super(BestOrderBid, self).__init__(exchange_market, exchange)
         self.bids = self.order_bids(bids)
 
     @staticmethod
@@ -132,7 +168,7 @@ class BestOrderBookBid(OrderBook):
                 continue
 
             # Calculate the bid price including the fee
-            bid_price_with_fee = self._calculate_price_with_fee(bid_price, max_possible_qty)
+            bid_price_with_fee = self._calculate_price_with_fee(bid_price)
 
             # Check if the offer price plus fee is better than the highest asking price with fee
             if bid_price_with_fee > lowest_ask_price_with_fee:
@@ -148,7 +184,7 @@ class BestOrderBookBid(OrderBook):
         self.set_opportunity(opportunities)
 
 
-class BestOrderBookAsk(OrderBook):
+class BestOrderAsk(OrderBase):
     """
     The ask price is the lowest price a would-be seller is willing to accept for a crypto
     """
@@ -156,7 +192,7 @@ class BestOrderBookAsk(OrderBook):
     _taker_or_maker = "taker"
 
     def __init__(self, exchange_market, exchange, asks):
-        super(BestOrderBookAsk, self).__init__(exchange_market, exchange)
+        super(BestOrderAsk, self).__init__(exchange_market, exchange)
         self.asks = self.order_asks(asks)
 
     @staticmethod
@@ -186,7 +222,7 @@ class BestOrderBookAsk(OrderBook):
                 continue
 
             # Calculate the ask price including the fee
-            ask_price_with_fee = self._calculate_price_with_fee(ask_price, ask_qty)
+            ask_price_with_fee = self._calculate_price_with_fee(ask_price)
 
             # Check if the offer price plus fee is better than the highest bid price with fee
             if ask_price_with_fee < highest_bid_price_with_fee:

@@ -1,4 +1,5 @@
 import base64
+import datetime
 import hashlib
 import hmac
 
@@ -53,7 +54,7 @@ class KuCoinAPI(BaseAPI):
         response = await self.get(url, headers=headers)
         return {row["currency"]: float(row["available"]) for row in response["data"]}
 
-    async def create_order(self, _id, symbol, qty, price, side, _type=None, params=None):
+    async def create_order(self, _id, symbol, qty, price, side, _type=None):
         endpoint = "/api/v1/orders"
         url = self._base_url + endpoint
         data = {
@@ -71,12 +72,13 @@ class KuCoinAPI(BaseAPI):
         compact_data = self._compact_json_dict(data)
         headers = self._get_headers(endpoint, method="POST", compact_data=compact_data)
 
-        self.notify("Exchange order ID", _id)
         response = await self.post(url, data=compact_data, headers=headers)
 
         if response.get('code') != '200000':
             self.notify("Error on {} order: {}".format(side, response.get("msg", "Error message N/A")))
             return False, response
+
+        self.notify("Exchange order ID", _id)
 
         return True, _id
 
@@ -92,12 +94,21 @@ class KuCoinAPI(BaseAPI):
 
         return True
 
-    async def list_orders(self):
-        endpoint = "/api/v1/orders"
+    async def fetch_order_status(self, order_id):
+        endpoint = "/api/v1/order/client-order/{}".format(str(order_id))
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
         response = await self.get(url, headers=headers)
-        return response
+
+        data = {
+            "price": float(response["data"]["price"]),
+            "quantity": float(response["data"]["size"]),
+            "fee": float(response["data"]["fee"]),
+            "timestamp": datetime.datetime.fromtimestamp(response["data"]["createdAt"] / 1000.0),
+            "filled": not response["data"]["isActive"] and not response["data"]["cancelExist"]
+        }
+
+        return data
 
     @property
     def _encoded_passphrase(self):

@@ -1,8 +1,7 @@
 import base64
 import hashlib
 import hmac
-
-import time
+import datetime
 
 from api.base import BaseAPI
 
@@ -51,9 +50,9 @@ class AscendexAPI(BaseAPI):
 
     async def fetch_fees(self, symbol):
         if symbol.split('/')[0] in self._big_coins:
-            fee = 0.1
+            fee = 0.001
         else:
-            fee = 0.2
+            fee = 0.002
         return {"maker": fee, "taker": fee}
 
     async def fetch_exchange_specifics(self):
@@ -65,31 +64,54 @@ class AscendexAPI(BaseAPI):
         response = await self.get(url, headers=headers)
         self._uuid = response["data"]["userUID"]
 
-    async def create_order(self, _id, symbol, qty, price, side, _type=None, params=None):
-        url = self._private_base_url + "/api/pro/v1/cash/order"
-        nonce = self._nonce()
-        exchange_order_id = self._create_order_id(_id, nonce)
+    async def fetch_order_status(self, order_id):
+        headers = self._get_headers("order/status", self._nonce())
+        url = self._private_base_url + "/api/pro/v1/cash/order/status?orderId={}".format(str(order_id))
+        response = await self.get(url, headers=headers)
 
         data = {
-            "id": exchange_order_id,
+            "price": float(response["data"]["price"]),
+            "quantity": float(response["data"]["orderQty"]),
+            "fee": float(response["data"]["cumFee"]),
+            "timestamp": datetime.datetime.fromtimestamp(response["data"]["lastExecTime"] / 1000.0),
+            "filled": response["data"]["status"] == "Filled"
+        }
+
+        return data
+
+    async def fetch_order_history(self):
+        headers = self._get_headers("order/hist/current", self._nonce())
+        url = self._private_base_url + "/api/pro/v1/cash/order/hist/current"
+        response = await self.get(url, headers=headers)
+        print(response)
+
+    async def create_order(self, _id, symbol, qty, price, side, _type=None):
+        url = self._private_base_url + "/api/pro/v1/cash/order"
+        nonce = self._nonce()
+        order_id = self._create_order_id(_id, nonce)
+
+        data = {
+            "id": order_id,
             "time": nonce,
             "symbol": symbol,
             "orderPrice": str(price),
             "orderQty": str(qty),
             "orderType": "limit",
             "side": side,
-            #"timeInForce": "IOC"
+            "timeInForce": "IOC"
         }
 
         compact_data = self._compact_json_dict(data)
         headers = self._get_headers("order", nonce)
 
-        self.notify("Exchange order ID", exchange_order_id)
         response = await self.post(url, compact_data, headers=headers)
 
         if response.get('code', 0) != 0:
             self.notify("Error on {} order: {}".format(side, response.get("message", "Error message N/A")))
             return False, response
+
+        exchange_order_id = response["data"]["info"]["orderId"]
+        self.notify("Exchange order ID", exchange_order_id)
 
         return True, exchange_order_id
 
@@ -97,7 +119,6 @@ class AscendexAPI(BaseAPI):
         url = self._private_base_url + "/api/pro/v1/cash/order"
         nonce = self._nonce()
         data = {
-            "id": order_id,
             "orderId": order_id,
             "symbol": symbol,
             "time": nonce

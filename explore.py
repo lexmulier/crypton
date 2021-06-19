@@ -20,7 +20,7 @@ class CryptonExplore(Crypton):
     @staticmethod
     def _fetch_orders(exchanges, market):
         loop = asyncio.get_event_loop()
-        tasks = [exchange.markets[market].get_order() for exchange in exchanges]
+        tasks = [exchange.markets[market].get_orders() for exchange in exchanges]
         return loop.run_until_complete(asyncio.gather(*tasks))
 
     def fetch_orders(self, exchanges, market):
