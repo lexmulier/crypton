@@ -1,4 +1,5 @@
 from api.get_client import get_client
+from models import db
 from orders import BestOrderAsk, BestOrderBid
 from session import SessionManager
 from utils import handle_bad_requests
@@ -16,7 +17,7 @@ class Exchange(object):
 
         self.markets = None
         self.market_symbols = None
-        self.balance = None
+        self.balance = {}
 
         self.client = get_client(self)
         self.session_manager = SessionManager(self.client)
@@ -24,10 +25,6 @@ class Exchange(object):
     def notify(self, *args):
         if self.verbose:
             print("EXCHANGE {}:".format(self.exchange_id), *args)
-
-    #@handle_bad_requests()
-    async def retrieve_balance(self):
-        self.balance = await self.client.fetch_balance()
 
     #@handle_bad_requests()
     async def initiate_markets(self):
@@ -61,8 +58,20 @@ class Exchange(object):
             if self.preload_market:
                 await self.markets[self.preload_market].preload()
 
-    def get_balance(self, symbol):
+    def get_balance(self, symbol, from_database=False):
+        if from_database:
+            balance = db.client.balance.find_one({"exchange": self.exchange_id}, {"balance": True})
+            self.balance.update({row["coin"]: row["balance"] for row in balance["balance"]})
         return self.balance.get(symbol, 0.0)
+
+    async def retrieve_balance(self):
+        balance = await self.client.fetch_balance()
+        db.client.balance.update_one(
+            {"exchange": self.exchange_id},
+            {"$set": {"balance.{}".format(coin): balance for coin, balance in balance.items()}},
+            upsert=True
+        )
+        self.balance.update(balance)
 
 
 class ExchangeMarket(object):

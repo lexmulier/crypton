@@ -52,7 +52,11 @@ class KuCoinAPI(BaseAPI):
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
         response = await self.get(url, headers=headers)
-        return {row["currency"]: float(row["available"]) for row in response["data"]}
+        return {
+            row["currency"]: float(row["available"])
+            for row in response["data"]
+            if row["type"] == "trade"
+        }
 
     async def create_order(self, _id, symbol, qty, price, side, _type=None):
         endpoint = "/api/v1/orders"

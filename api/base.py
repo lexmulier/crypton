@@ -34,20 +34,18 @@ class BaseAPI(object):
         async with self.session.delete(url, data=data, headers=headers) as response:
             return await response.json()
 
-    async def fetch_balance(self):
-        self.notify("Using not implemented fetch_balance")
-        return {}
-
     async def fetch_fees(self, _):
         self.notify("Using not implemented fetch_fees")
         return {"maker": 0.2, "taker": 0.2}
+
+    async def fetch_balance(self, *args, **kwargs):
+        raise NotImplementedError("Create order not implemented for this API")
 
     async def fetch_order_status(self, _):
         raise NotImplementedError("Fetch order status not implemented for this API")
 
     async def create_order(self, *args, **kwargs):
         raise NotImplementedError("Create order not implemented for this API")
-
 
     @staticmethod
     async def fetch_exchange_specifics():

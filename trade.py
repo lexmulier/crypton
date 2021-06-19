@@ -32,6 +32,7 @@ class CryptonTrade(Crypton):
         self.sleep = sleep
         self.min_profit_perc = min_profit_perc if min_profit_perc is not None else self.MIN_PROFIT_PERCENTAGE
         self.min_profit_amount = min_profit_amount if min_profit_amount is not None else self.MIN_PROFIT_AMOUNT
+
         super(CryptonTrade, self).__init__(exchange_configs, *args, **kwargs)
 
         self.trade_id = None
@@ -41,12 +42,12 @@ class CryptonTrade(Crypton):
             print("TRADE {}:".format(self.trade_id if self.trade_id else ""), *args)
 
     def start(self, min_qty=0):
+        iteration = 0
         while True:
-            self.sleep_now()
+            iteration += 1
 
-            self.trade_id = ObjectId()
-            timestamp = datetime.datetime.now()
-            self.notify("#" * 20)
+            self.sleep_now()
+            timestamp = self.prepare_iteration(iteration)
 
             success, best_exchange_asks, best_exchange_bids = self.fetch_orders()
             if not success:
@@ -65,11 +66,30 @@ class CryptonTrade(Crypton):
             # Check if orders have been filled successfully
             orders_successful = self.verify_orders(best_ask, best_bid)
 
+            # Save full order information to the MongoDB database
             self.save_to_database(best_ask, best_bid, timestamp, orders_successful)
 
-            # Fetch balance again
+            # Update the balance information with the latest from the exchange
+            self.update_balance()
 
             break  # Temporary
+
+    def prepare_iteration(self, iteration_number):
+        if iteration_number % 20 == 0:
+            for exchange in self.exchanges.values():
+                exchange.get_balance(from_database=True)
+
+        self.trade_id = ObjectId()
+        timestamp = datetime.datetime.now()
+
+        self.notify("#" * 20)
+
+        return timestamp
+
+    def update_balance(self):
+        loop = asyncio.get_event_loop()
+        tasks = [exchange.retrieve_balance() for exchange in self.exchanges.values()]
+        loop.run_until_complete(asyncio.gather(*tasks))
 
     def save_to_database(self, best_ask, best_bid, timestamp, orders_successful):
         data = {
@@ -122,7 +142,7 @@ class CryptonTrade(Crypton):
             if tasks:
                 loop = asyncio.get_event_loop()
                 loop.run_until_complete(asyncio.gather(*tasks))
-                self.sleep_now(seconds=1)
+                self.sleep_now(seconds=1 + (i / 10.0))
             else:
                 self.notify("Both orders successful!")
                 return True
@@ -219,10 +239,7 @@ class CryptonTrade(Crypton):
     @staticmethod
     def cancel_orders(best_ask, best_bid):
         loop = asyncio.get_event_loop()
-        tasks = [
-            best_ask.cancel(),
-            best_bid.cancel()
-        ]
+        tasks = [best_ask.cancel(), best_bid.cancel()]
         response = loop.run_until_complete(asyncio.gather(*tasks))
 
         best_ask.exchange.notify("Cancelled order {} success: {}".format(best_ask.order_id, response[0][0]))
@@ -239,10 +256,6 @@ class CryptonTrade(Crypton):
         # How much volume can I sell due to how much I have in balance
         base_currency = best_bid.exchange_market.base_coin
         bid_exchange_qty = best_bid.exchange.get_balance(base_currency)
-
-        # TODO: Temp
-        ask_exchange_qty = 100000000000000
-        bid_exchange_qty = 100000000000000
 
         # Check if we have enough on balance to proceed on both exchanges (not stopping)
         self.check_enough_balance(best_ask, best_bid, ask_exchange_qty, bid_exchange_qty, min_qty)
