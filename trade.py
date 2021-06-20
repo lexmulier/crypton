@@ -41,6 +41,7 @@ class CryptonTrade(Crypton):
         if self.verbose:
             print("TRADE {}:".format(self.trade_id if self.trade_id else ""), *args)
 
+    # TODO: Do we need minimal quantity if we have minimal profit amount?
     def start(self, min_qty=0):
         iteration = 0
         while True:
@@ -71,8 +72,6 @@ class CryptonTrade(Crypton):
 
             # Update the balance information with the latest from the exchange
             self.update_balance()
-
-            break  # Temporary
 
     def prepare_iteration(self, iteration_number):
         if iteration_number % 20 == 0:
@@ -113,7 +112,8 @@ class CryptonTrade(Crypton):
                     "quantity": best_bid.best_quantity,
                     "opportunities": best_bid.opportunities,
                     "bids": best_bid.bids,
-                }
+                },
+                "profit_percentage":  
             },
             "actual": {
                 "ask": {
@@ -198,7 +198,7 @@ class CryptonTrade(Crypton):
         return possible_order_qty, best_ask, best_bid
 
     def check_enough_balance(self, best_ask, best_bid, ask_exchange_qty, bid_exchange_qty, minimal_qty):
-        if minimal_qty > bid_exchange_qty:
+        if minimal_qty >= bid_exchange_qty:
             self.notify(
                 "Not enough {} on {}. Current balance: {}".format(
                     best_bid.exchange_market.base_coin,
@@ -206,7 +206,7 @@ class CryptonTrade(Crypton):
                     bid_exchange_qty
                 )
             )
-        elif minimal_qty > ask_exchange_qty:
+        elif minimal_qty >= ask_exchange_qty:
             self.notify(
                 "Not enough {} on {}. Current balance: {}".format(
                     best_ask.exchange_market.quote_coin,
@@ -227,8 +227,8 @@ class CryptonTrade(Crypton):
         ]
         response = loop.run_until_complete(asyncio.gather(*tasks))
 
-        buy_order_success = response[0][0]
-        sell_order_success = response[1][0]
+        buy_order_success = response[0]
+        sell_order_success = response[1]
 
         if not any([sell_order_success, buy_order_success]):
             msg = "Error! Trying to cancel both (sell: {}, buy: {})"
@@ -245,17 +245,17 @@ class CryptonTrade(Crypton):
         best_ask.exchange.notify("Cancelled order {} success: {}".format(best_ask.order_id, response[0][0]))
         best_bid.exchange.notify("Cancelled order {} success: {}".format(best_bid.order_id, response[1][0]))
 
-        return response[0][0] and response[1][0]
+        return response[0] and response[1]
 
     def get_exchange_balances(self, best_ask, best_bid, min_qty):
         # How much volume can I buy with my payment currency (we need to calculate it)
         quote_currency = best_ask.exchange_market.quote_coin
-        quote_currency_balance = best_ask.exchange.get_balance(quote_currency)
+        quote_currency_balance = best_ask.exchange.get_balance(symbol=quote_currency)
         ask_exchange_qty = quote_currency_balance / best_ask.first_price_with_fee
 
         # How much volume can I sell due to how much I have in balance
         base_currency = best_bid.exchange_market.base_coin
-        bid_exchange_qty = best_bid.exchange.get_balance(base_currency)
+        bid_exchange_qty = best_bid.exchange.get_balance(symbol=base_currency)
 
         # Check if we have enough on balance to proceed on both exchanges (not stopping)
         self.check_enough_balance(best_ask, best_bid, ask_exchange_qty, bid_exchange_qty, min_qty)

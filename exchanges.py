@@ -58,10 +58,10 @@ class Exchange(object):
             if self.preload_market:
                 await self.markets[self.preload_market].preload()
 
-    def get_balance(self, symbol, from_database=False):
+    def get_balance(self, symbol=None, from_database=False):
         if from_database:
             balance = db.client.balance.find_one({"exchange": self.exchange_id}, {"balance": True})
-            self.balance.update({row["coin"]: row["balance"] for row in balance["balance"]})
+            self.balance.update(balance["balance"])
         return self.balance.get(symbol, 0.0)
 
     async def retrieve_balance(self):
