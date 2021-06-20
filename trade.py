@@ -11,7 +11,7 @@ from models import db
 class CryptonTrade(Crypton):
 
     MIN_PROFIT_PERCENTAGE = 0.5
-    MIN_PROFIT_AMOUNT = 0.5
+    MIN_PROFIT_AMOUNT = 0.2
 
     def __init__(
             self,
@@ -138,7 +138,7 @@ class CryptonTrade(Crypton):
     def verify_orders(self, best_ask, best_bid):
 
         for i in range(20):
-            tasks = [order.get_status() for order in [best_ask, best_bid] if order.status != order.status_success]
+            tasks = [order.get_status() for order in [best_ask, best_bid] if order.status != order.status_filled]
             if tasks:
                 loop = asyncio.get_event_loop()
                 loop.run_until_complete(asyncio.gather(*tasks))
@@ -272,17 +272,16 @@ class CryptonTrade(Crypton):
         profit_perc = ((bid_price - ask_price) / ask_price) * 100.0
         adequate_margin_perc = profit_perc >= self.min_profit_perc
 
-        if not adequate_margin_perc:
-            msg = "Profit percentage {}% below min profit {}%"
-            msg = msg.format(profit_perc, self.min_profit_perc)
-            self.notify(msg)
-
         profit_amount = best_bid.best_offer - best_ask.best_offer
         adequate_margin_amount = profit_amount >= self.min_profit_amount
 
-        if not adequate_margin_amount:
-            msg = "Profit amount {}% below min profit {}"
-            msg = msg.format(profit_amount, self.min_profit_amount)
+        if not adequate_margin_amount and not adequate_margin_perc:
+            msg = "Profit percentage {}% below min profit {}%"
+            msg = msg.format(round(profit_perc, 8), self.min_profit_perc)
+            self.notify(msg)
+
+            msg = "Profit amount {} {} below min profit {} {}"
+            msg = msg.format(round(profit_amount, 8), self.quote_coin, self.min_profit_amount, self.quote_coin)
             self.notify(msg)
 
         return (adequate_margin_perc and adequate_margin_amount), profit_perc, profit_amount
