@@ -1,21 +1,27 @@
 import datetime
 import asyncio
+import itertools
 
-from base import CryptonBase
 from config import *
+from exchanges import initiate_exchanges
 from models import db
 
 
-class CryptonExplore(CryptonBase):
+class CryptonExplore(object):
 
     MIN_ARBITRAGE_PERCENTAGE = 1.5
 
-    def __init__(self, *args, **kwargs):
-        super(CryptonExplore, self).__init__(*args, **kwargs)
+    def __init__(self, exchange_ids, verbose=True):
+        self.exchanges = initiate_exchanges(exchange_ids, verbose=verbose)
+        self.verbose = verbose
 
     @property
     def markets(self):
         return set([market for exchange in self.exchanges.values() for market in exchange.market_symbols])
+
+    def notify(self, *args):
+        if self.verbose:
+            print(*args)
 
     @staticmethod
     def _fetch_orders(exchanges, market):
@@ -27,12 +33,8 @@ class CryptonExplore(CryptonBase):
         response = self._fetch_orders(exchanges, market)
         results = [x for x in response if x[0]]
 
-        for left_order in results:
-            for right_order in results:
-                if left_order[1].exchange.exchange_id == right_order[1].exchange.exchange_id:
-                    continue
-
-                yield [left_order[1], right_order[1]], [left_order[2], right_order[2]]
+        for left_order, right_order in itertools.combinations(results, 2):
+            yield [left_order[1], right_order[1]], [left_order[2], right_order[2]]
 
     def _check_arbitrage(self, exchanges, market):
         timestamp = datetime.datetime.now()
@@ -88,8 +90,6 @@ class CryptonExplore(CryptonBase):
 
 
 if __name__ == "__main__":
-
-
-    bot = CryptonExplore(EXCHANGES, verbose=True)
+    bot = CryptonExplore(EXCHANGES.keys())
     bot.start()
 

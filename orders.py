@@ -157,7 +157,7 @@ class BestOrderBid(OrderBase):
     def first_quantity(self):
         return self.bids[0][1]
 
-    def opportunity(self, lowest_ask_price_with_fee, balance_qty, min_qty):
+    def opportunity(self, lowest_ask_price_with_fee, balance_qty, min_base_qty, min_quote_qty):
         opportunities = []
         # Loop all bids in the response from the exchange
         for bid_row in self.bids:
@@ -168,22 +168,30 @@ class BestOrderBid(OrderBase):
             max_possible_qty = min(bid_qty, balance_qty)
 
             # If the maximum possible quantity is lower than what we allow, continue
-            if min_qty > max_possible_qty:
+            if min_base_qty > max_possible_qty:
                 continue
 
             # Calculate the bid price including the fee
             bid_price_with_fee = self._calculate_price_with_fee(bid_price)
 
             # Check if the offer price plus fee is better than the highest asking price with fee
-            if bid_price_with_fee > lowest_ask_price_with_fee:
+            if bid_price_with_fee <= lowest_ask_price_with_fee:
+                continue
 
-                # Calculate the opportunity for this particular offer
-                opportunities.append([
-                    bid_price,
-                    bid_price_with_fee,
-                    max_possible_qty,
-                    bid_price_with_fee * max_possible_qty
-                ])
+            # Calculate our arbitrage opportunity
+            opportunity = bid_price_with_fee * max_possible_qty
+
+            # Check if the opportunity is better than the minimal notonial quantity
+            if min_quote_qty > opportunity:
+                continue
+
+            # Calculate the opportunity for this particular offer
+            opportunities.append([
+                bid_price,
+                bid_price_with_fee,
+                max_possible_qty,
+                opportunity
+            ])
 
         self.set_opportunity(opportunities)
 
@@ -211,7 +219,7 @@ class BestOrderAsk(OrderBase):
     def first_quantity(self):
         return self.asks[0][1]
 
-    def opportunity(self, highest_bid_price_with_fee, balance_qty, min_qty):
+    def opportunity(self, highest_bid_price_with_fee, balance_qty, min_qty, min_quote_qty):
         opportunities = []
         # Loop all bids in the response from the exchange
         for ask_row in self.asks:
@@ -229,14 +237,22 @@ class BestOrderAsk(OrderBase):
             ask_price_with_fee = self._calculate_price_with_fee(ask_price)
 
             # Check if the offer price plus fee is better than the highest bid price with fee
-            if ask_price_with_fee < highest_bid_price_with_fee:
+            if ask_price_with_fee >= highest_bid_price_with_fee:
+                continue
 
-                # Calculate the opportunity for this particular offer
-                opportunities.append([
-                    ask_price,
-                    ask_price_with_fee,
-                    max_possible_qty,
-                    ask_price_with_fee * max_possible_qty
-                ])
+            # Calculate our arbitrage opportunity
+            opportunity = ask_price_with_fee * max_possible_qty
+
+            # Check if the opportunity is better than the minimal notonial quantity
+            if min_quote_qty > opportunity:
+                continue
+
+            # Calculate the opportunity for this particular offer
+            opportunities.append([
+                ask_price,
+                ask_price_with_fee,
+                max_possible_qty,
+                opportunity
+            ])
 
         self.set_opportunity(opportunities)

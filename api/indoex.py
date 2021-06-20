@@ -2,8 +2,8 @@ from api.base import BaseAPI
 
 
 class IndoExAPI(BaseAPI):
-    def __init__(self, exchange, session):
-        super(IndoExAPI, self).__init__(exchange, session)
+    def __init__(self, *args, **kwargs):
+        super(IndoExAPI, self).__init__(*args, **kwargs)
 
     async def get(self, url):
         async with self.session.get(url) as response:
@@ -26,12 +26,7 @@ class IndoExAPI(BaseAPI):
         ]
         return markets
 
-    # TODO: WIP
     async def fetch_balance(self):
-        self.exchange.notify("NEEDS IMPROVEMENT")
-        # url = "https://api.dex-trade.com/v1/private/balances"
-        # response = await self.get(url)
-        # balance = {row["asset"]: float(row["free"]) for row in response.get("balances", {})}
         return {}
 
     async def fetch_fees(self, _):

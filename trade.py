@@ -13,14 +13,24 @@ class CryptonTrade(object):
     _min_profit_perc = 0.5
     _min_profit_amount = 0.2
 
-    def __init__(self, market, exchanges, min_profit_perc, min_profit_amount, min_qty, verbose=False):
+    def __init__(
+            self,
+            market,
+            exchanges,
+            min_profit_perc=None,
+            min_profit_amount=None,
+            min_base_qty=None,
+            min_quote_qty=None,
+            verbose=True
+    ):
         self.market = market
         self.base_coin, self.quote_coin = market.split("/")
 
         self.exchanges = exchanges
         self.min_profit_perc = min_profit_perc if min_profit_perc is not None else self._min_profit_perc
         self.min_profit_amount = min_profit_amount if min_profit_amount is not None else self._min_profit_amount
-        self.min_qty = min_qty if min_qty is not None else 0.0
+        self.min_base_qty = min_base_qty if min_base_qty is not None else 0.0
+        self.min_quote_qty = min_quote_qty if min_quote_qty is not None else 0.0
         self.verbose = verbose
 
         self.trade_id = ObjectId()
@@ -41,6 +51,8 @@ class CryptonTrade(object):
             print("TRADE {}:".format(self.trade_id if self.trade_id else ""), *args)
 
     def start(self):
+        self.notify('#' * 30)
+
         # Fetch orders from the exchanges
         success, best_exchange_asks, best_exchange_bids = self.fetch_orders()
         if not success:
@@ -84,8 +96,18 @@ class CryptonTrade(object):
         exchange_order_qty = self.get_exchange_balances(self.best_ask, self.best_bid)
 
         # Filter the opportunities based on arbitrage and qty in exchanges
-        self.best_ask.opportunity(self.best_bid.first_price_with_fee, exchange_order_qty, self.min_qty)
-        self.best_bid.opportunity(self.best_ask.first_price_with_fee, exchange_order_qty, self.min_qty)
+        self.best_ask.opportunity(
+            self.best_bid.first_price_with_fee,
+            exchange_order_qty,
+            self.min_base_qty,
+            self.min_quote_qty
+        )
+        self.best_bid.opportunity(
+            self.best_ask.first_price_with_fee,
+            exchange_order_qty,
+            self.min_base_qty,
+            self.min_quote_qty
+        )
 
         # Which quantity is dictating how much we're buying? Best off on ask, bid or balance on exchanges?
         self.order_qty = min(self.best_ask.best_quantity, self.best_bid.best_quantity, exchange_order_qty)
@@ -97,12 +119,22 @@ class CryptonTrade(object):
         # If best ask quantity is above best bid quantity then we find new best opportunity for best ask
         elif self.best_ask.best_quantity >= self.best_bid.best_quantity:
             self.notify("Taking order quantity from best bid quantity")
-            self.best_ask.opportunity(self.best_bid.first_price_with_fee, self.best_bid.best_quantity)
+            self.best_ask.opportunity(
+                self.best_bid.first_price_with_fee,
+                self.best_bid.best_quantity,
+                self.min_base_qty,
+                self.min_quote_qty
+            )
 
         # If best bid quantity is above best ask quantity then we find new best opportunity for best bid
         elif self.best_bid.best_quantity >= self.best_ask.best_quantity:
             self.notify("Taking order quantity from best ask quantity")
-            self.best_bid.opportunity(self.best_ask.first_price_with_fee, self.best_ask.best_quantity, self.min_qty)
+            self.best_bid.opportunity(
+                self.best_ask.first_price_with_fee,
+                self.best_ask.best_quantity,
+                self.min_base_qty,
+                self.min_quote_qty
+            )
 
         self.notify(self.best_ask)
         self.notify(self.best_bid)
@@ -123,7 +155,7 @@ class CryptonTrade(object):
         return min(ask_exchange_qty, bid_exchange_qty)
 
     def check_enough_balance(self, best_ask, best_bid, ask_exchange_qty, bid_exchange_qty):
-        if self.min_qty >= bid_exchange_qty:
+        if self.min_base_qty >= bid_exchange_qty:
             self.notify(
                 "Not enough {} on {}. Current balance: {}".format(
                     best_bid.exchange_market.base_coin,
@@ -131,7 +163,7 @@ class CryptonTrade(object):
                     bid_exchange_qty
                 )
             )
-        elif self.min_qty >= ask_exchange_qty:
+        elif self.min_base_qty >= ask_exchange_qty:
             self.notify(
                 "Not enough {} on {}. Current balance: {}".format(
                     best_ask.exchange_market.quote_coin,
@@ -162,7 +194,7 @@ class CryptonTrade(object):
             msg = msg.format(round(profit_amount, 8), self.quote_coin, self.min_profit_amount, self.quote_coin)
             self.notify(msg)
 
-        return (adequate_margin_perc and adequate_margin_amount), profit_perc, profit_amount
+        return (adequate_margin_perc or adequate_margin_amount), profit_perc, profit_amount
 
     def verify_arbitrage_and_profit(self):
         """
@@ -174,6 +206,11 @@ class CryptonTrade(object):
             self.notify("Skipping: Best ask and best bid are on the same exchange")
             return False
 
+        # We want to order at least a certain amount to avoid small trading
+        if self.order_qty <= self.min_base_qty:
+            self.notify("Skipping: Order quantity is below minimal quantity ({})".format(self.min_base_qty))
+            return False
+
         # Check if there is arbitrage because the ask price is higher than the bid price
         if self.best_ask > self.best_bid:
             self.notify("Skipping: Asking price is higher than bid price")
@@ -181,12 +218,7 @@ class CryptonTrade(object):
 
         # If these lists are empty then there is no arbitrage
         if not self.best_ask.opportunities or not self.best_bid.opportunities:
-            self.notify("Skipping: No good arbitrage opportunities found".format(self.min_qty))
-            return False
-
-        # We want to order at least a certain amount to avoid small trading
-        if self.order_qty <= self.min_qty:
-            self.notify("Skipping: Order quantity is below minimal quantity ({})".format(self.min_qty))
+            self.notify("Skipping: No good arbitrage opportunities found".format(self.min_base_qty))
             return False
 
         # Check if the amount or percentage is high enough to take the risk
@@ -328,7 +360,8 @@ def activate_crypton(
         exchange_ids,
         min_profit_perc=None,
         min_profit_amount=None,
-        min_qty=0.0,
+        min_base_qty=0.0,
+        min_quote_qty=0.0,
         sleep_time=0.1,
         verbose=False
 ):
@@ -351,7 +384,8 @@ def activate_crypton(
             exchanges=exchanges,
             min_profit_perc=min_profit_perc,
             min_profit_amount=min_profit_amount,
-            min_qty=min_qty,
+            min_base_qty=min_base_qty,
+            min_quote_qty=min_quote_qty,
             verbose=verbose
         )
         trade.start()
@@ -361,6 +395,8 @@ def activate_crypton(
 
 
 if __name__ == "__main__":
-    activate_crypton("MITX/USDT", ["ascendex", "kucoin"], verbose=True)
+    market = "MITX/USDT"
+    exchange_ids = ["ascendex", "kucoin"]
+    activate_crypton(market, exchange_ids, min_quote_qty=5.0, verbose=True)
 
 

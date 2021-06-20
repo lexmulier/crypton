@@ -4,8 +4,8 @@ from api.base import BaseAPI
 
 
 class DexTradeAPI(BaseAPI):
-    def __init__(self, exchange, session):
-        super(DexTradeAPI, self).__init__(exchange, session)
+    def __init__(self, *args, **kwargs):
+        super(DexTradeAPI, self).__init__(*args, **kwargs)
         self.token, self.secret = self._login()
 
     def _login(self):

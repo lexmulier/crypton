@@ -18,8 +18,6 @@ class CryptonBase(object):
 
 
 
-    def notify(self, *args):
-        if self.verbose:
-            print(*args)
+
 
 

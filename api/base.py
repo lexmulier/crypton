@@ -39,7 +39,7 @@ class BaseAPI(object):
         return {"maker": 0.2, "taker": 0.2}
 
     async def fetch_balance(self, *args, **kwargs):
-        raise NotImplementedError("Create order not implemented for this API")
+        raise NotImplementedError("Fetch balance order not implemented for this API")
 
     async def fetch_order_status(self, _):
         raise NotImplementedError("Fetch order status not implemented for this API")

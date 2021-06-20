@@ -61,18 +61,19 @@ class Exchange(object):
                 await self.markets[self.preload_market].preload()
 
     def get_balance(self, symbol=None, from_database=False):
-        if from_database:
+        if from_database or not self.balance:
             balance = db.client.balance.find_one({"exchange": self.exchange_id}, {"balance": True})
             self.balance.update(balance["balance"])
         return self.balance.get(symbol, 0.0)
 
     async def _retrieve_balance(self):
         balance = await self.client.fetch_balance()
-        db.client.balance.update_one(
-            {"exchange": self.exchange_id},
-            {"$set": {"balance.{}".format(coin): balance for coin, balance in balance.items()}},
-            upsert=True
-        )
+        if balance:
+            db.client.balance.update_one(
+                {"exchange": self.exchange_id},
+                {"$set": {"balance.{}".format(coin): balance for coin, balance in balance.items()}},
+                upsert=True
+            )
         self.balance.update(balance)
 
     async def retrieve_balance(self):
@@ -128,7 +129,7 @@ class ExchangeMarket(object):
         return True, best_ask, best_bid
 
 
-def initiate_exchanges(exchange_ids, preload_market=None, verbose=False):
+def initiate_exchanges(exchange_ids, preload_market=None, verbose=True):
     # Initiate exchanges
     exchanges = {}
     for exchange_id in exchange_ids:
