@@ -1,4 +1,4 @@
-from ..trade import CryptonTrade
+from ..trade import Crypton
 
 
 EXCHANGE_CONFIGS = {
@@ -14,5 +14,5 @@ EXCHANGE_CONFIGS = {
 
 
 def test_check_arbitrage():
-    bot = CryptonTrade(EXCHANGE_CONFIGS, verbose=True)
+    bot = Crypton(EXCHANGE_CONFIGS, verbose=True)
 

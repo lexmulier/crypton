@@ -2,10 +2,10 @@ class OrderBase(object):
     _type = None
     _taker_or_maker = None
 
-    status_none = "NONE"
-    status_active = "ACTIVE"
-    status_failed = "FAILED"
-    status_filled = "FILLED"
+    STATUS_NONE = "NONE"
+    STATUS_ACTIVE = "ACTIVE"
+    STATUS_FAILED = "FAILED"
+    STATUS_FILLED = "FILLED"
 
     first_price = 0.0
     first_quantity = 0.0
@@ -29,7 +29,7 @@ class OrderBase(object):
 
         self.timestamp = None
         self.exchange_order_id = None
-        self.status = self.status_none
+        self.status = self.STATUS_NONE
 
     def _generate_output(self):
         if self.opportunities:
@@ -57,25 +57,29 @@ class OrderBase(object):
     def __str__(self):
         return self._generate_output()
 
+    def _get_comparing_prices(self, other_exchange):
+        if self.status == self.STATUS_FILLED and other_exchange.status == other_exchange.STATUS_FILLED:
+            return self.actual_price_with_fee, other_exchange.actual_price_with_fee
+        elif self.opportunities and other_exchange.opportunities:
+            return self.best_price_with_fee, other_exchange.best_price_with_fee
+        else:
+            return self.first_price_with_fee, other_exchange.first_price_with_fee
+
     def __lt__(self, other_exchange):
-        if self.opportunities and other_exchange.opportunities:
-            return self.best_price_with_fee < other_exchange.best_price_with_fee
-        return self.first_price_with_fee < other_exchange.first_price_with_fee
+        price, other_price = self._get_comparing_prices(other_exchange)
+        return price < other_price
 
     def __le__(self, other_exchange):
-        if self.opportunities and other_exchange.opportunities:
-            return self.best_price_with_fee <= other_exchange.best_price_with_fee
-        return self.first_price_with_fee <= other_exchange.first_price_with_fee
+        price, other_price = self._get_comparing_prices(other_exchange)
+        return price <= other_price
 
     def __gt__(self, other_exchange):
-        if self.opportunities and other_exchange.opportunities:
-            return self.best_price_with_fee > other_exchange.best_price_with_fee
-        return self.first_price_with_fee > other_exchange.first_price_with_fee
+        price, other_price = self._get_comparing_prices(other_exchange)
+        return price > other_price
 
     def __ge__(self, other_exchange):
-        if self.opportunities and other_exchange.opportunities:
-            return self.best_price_with_fee >= other_exchange.best_price_with_fee
-        return self.first_price_with_fee >= other_exchange.first_price_with_fee
+        price, other_price = self._get_comparing_prices(other_exchange)
+        return price >= other_price
 
     @property
     def first_price_with_fee(self):
@@ -99,7 +103,7 @@ class OrderBase(object):
         return await self._create_order(_id, "buy", qty, price)
 
     async def _create_order(self, _id, side, qty, price):
-        self.status = self.status_active
+        self.status = self.STATUS_ACTIVE
         async with self.exchange.session_manager:
             success, order_id = await self.exchange.client.create_order(
                 _id,
@@ -110,7 +114,7 @@ class OrderBase(object):
             )
             self.exchange_order_id = order_id
             if not success:
-                self.status = self.status_failed
+                self.status = self.STATUS_FAILED
             return success
 
     async def cancel(self):
@@ -122,12 +126,12 @@ class OrderBase(object):
             result = await self.exchange.client.fetch_order_status(self.exchange_order_id)
 
             self.actual_price = result["price"]
-            self.actual_price_with_fee = result["fee"] / (result["price"] * result["quantity"])
+            self.actual_price_with_fee = result["price"] + (result["fee"] / (result["price"] * result["quantity"]))
             self.actual_quantity = result["quantity"]
             self.timestamp = result["timestamp"]
 
             if result["filled"] is True:
-                self.status = self.status_filled
+                self.status = self.STATUS_FILLED
 
 
 class BestOrderBid(OrderBase):

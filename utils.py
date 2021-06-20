@@ -3,6 +3,11 @@ from time import sleep
 import ccxt
 
 
+def sleep_now(seconds=None):
+    seconds = seconds if seconds is not None else 0.1
+    sleep(seconds)
+
+
 def handle_bad_requests(max_retries=3, sleep_between_retry=True, suppress=False):
     def decorator(func):
         def decorated_function(exchange, *args, **kwargs):

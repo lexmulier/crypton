@@ -1,17 +1,20 @@
+import asyncio
+
 from api.get_client import get_client
+from config import EXCHANGES
 from models import db
 from orders import BestOrderAsk, BestOrderBid
 from session import SessionManager
-from utils import handle_bad_requests
 
 
 class Exchange(object):
 
-    _required_config_keys = ["apiKey", "secret"]
+    def __init__(self, exchange_id, preload_market=None, verbose=False):
+        if exchange_id not in EXCHANGES:
+            raise ValueError("Exchange {} does not exist according to configuration!".format(exchange_id))
 
-    def __init__(self, exchange_id, api_config, preload_market=None, verbose=False):
         self.exchange_id = exchange_id
-        self.api_config = api_config
+        self.api_config = EXCHANGES[exchange_id]
         self.preload_market = preload_market
         self.verbose = verbose
 
@@ -26,8 +29,7 @@ class Exchange(object):
         if self.verbose:
             print("EXCHANGE {}:".format(self.exchange_id), *args)
 
-    #@handle_bad_requests()
-    async def initiate_markets(self):
+    async def _initiate_markets(self):
         markets = await self.client.fetch_markets()
 
         market_symbols = []
@@ -46,14 +48,14 @@ class Exchange(object):
         self.markets = exchange_markets
         self.market_symbols = market_symbols
 
-    async def fetch_exchange_specifics(self):
+    async def _fetch_exchange_specifics(self):
         await self.client.fetch_exchange_specifics()
 
     async def prepare(self):
         async with self.session_manager:
-            await self.fetch_exchange_specifics()
-            await self.initiate_markets()
-            await self.retrieve_balance()
+            await self._fetch_exchange_specifics()
+            await self._initiate_markets()
+            await self._retrieve_balance()
 
             if self.preload_market:
                 await self.markets[self.preload_market].preload()
@@ -64,7 +66,7 @@ class Exchange(object):
             self.balance.update(balance["balance"])
         return self.balance.get(symbol, 0.0)
 
-    async def retrieve_balance(self):
+    async def _retrieve_balance(self):
         balance = await self.client.fetch_balance()
         db.client.balance.update_one(
             {"exchange": self.exchange_id},
@@ -72,6 +74,10 @@ class Exchange(object):
             upsert=True
         )
         self.balance.update(balance)
+
+    async def retrieve_balance(self):
+        async with self.session_manager:
+            await self._retrieve_balance()
 
 
 class ExchangeMarket(object):
@@ -104,7 +110,6 @@ class ExchangeMarket(object):
             )
         return market_info
 
-    #@handle_bad_requests(max_retries=1)
     async def get_orders(self, limit=None):
         async with self.exchange.session_manager:
             try:
@@ -121,3 +126,22 @@ class ExchangeMarket(object):
         best_bid = BestOrderBid(self, self.exchange, bids)
 
         return True, best_ask, best_bid
+
+
+def initiate_exchanges(exchange_ids, preload_market=None, verbose=False):
+    # Initiate exchanges
+    exchanges = {}
+    for exchange_id in exchange_ids:
+        exchange = Exchange(
+            exchange_id,
+            preload_market=preload_market,
+            verbose=verbose
+        )
+        exchanges[exchange_id] = exchange
+
+    # Prepare exchanges
+    loop = asyncio.get_event_loop()
+    tasks = [exchange.prepare() for exchange in exchanges.values()]
+    loop.run_until_complete(asyncio.gather(*tasks))
+
+    return exchanges

@@ -1,12 +1,12 @@
 import datetime
 import asyncio
 
-from base import Crypton
+from base import CryptonBase
 from config import *
 from models import db
 
 
-class CryptonExplore(Crypton):
+class CryptonExplore(CryptonBase):
 
     MIN_ARBITRAGE_PERCENTAGE = 1.5
 
@@ -88,18 +88,8 @@ class CryptonExplore(Crypton):
 
 
 if __name__ == "__main__":
-    EXCHANGE_CONFIGS = {
-        "liquid": LIQUID_CONFIG,
-        "timex": TIMEX_CONFIG,
-        "ascendex": ASCENDEX_CONFIG,
-        # "latoken": LATOKEN_CONFIG,
-        "kucoin": KUCOIN_CONFIG,
-        "kraken": KRAKEN_CONFIG,
-        "binance": BINANCE_CONFIG,
-        "dextrade": DEXTRADE_CONFIG,
-        "indoex": INDOEX_CONFIG
-    }
 
-    bot = CryptonExplore(EXCHANGE_CONFIGS, verbose=True)
+
+    bot = CryptonExplore(EXCHANGES, verbose=True)
     bot.start()
 
