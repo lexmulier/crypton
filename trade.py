@@ -41,6 +41,9 @@ class CryptonTrade(object):
         self.best_bid = None
         self.order_qty = 0.0
 
+        self.ask_exchange_qty = 0.0
+        self.bid_exchange_qty = 0.0
+
         self.expected_profit_perc = None
         self.expected_profit_amount = None
         self.actual_profit_perc = None
@@ -58,8 +61,15 @@ class CryptonTrade(object):
         if not success:
             return
 
+        self.best_ask = min(best_exchange_asks)
+        self.best_bid = max(best_exchange_bids)
+
+        # Get the balance on the exchanges
+        if not self.get_exchange_balances(self.best_ask, self.best_bid):
+            return
+
         # Find the best opportunity based on ask/bid price, ask/bid quantity and available funds
-        self.get_best_opportunity(best_exchange_asks, best_exchange_bids)
+        self.get_best_opportunity()
 
         # Check if there is arbitrage and adequate profit
         if not self.verify_arbitrage_and_profit():
@@ -88,12 +98,9 @@ class CryptonTrade(object):
 
         return success, best_exchange_asks, best_exchange_bids
 
-    def get_best_opportunity(self, best_exchange_asks, best_exchange_bids):
-        self.best_ask = min(best_exchange_asks)
-        self.best_bid = max(best_exchange_bids)
-
-        # Get the balance on the exchanges
-        exchange_order_qty = self.get_exchange_balances(self.best_ask, self.best_bid)
+    def get_best_opportunity(self):
+        # Order quantity from exchanges
+        exchange_order_qty = min(self.ask_exchange_qty, self.bid_exchange_qty)
 
         # Filter the opportunities based on arbitrage and qty in exchanges
         self.best_ask.opportunity(
@@ -110,7 +117,7 @@ class CryptonTrade(object):
         )
 
         # Which quantity is dictating how much we're buying? Best off on ask, bid or balance on exchanges?
-        self.order_qty = min(self.best_ask.best_quantity, self.best_bid.best_quantity, exchange_order_qty)
+        self.order_qty = min(self.best_ask.best_quantity, self.best_bid.best_quantity)
 
         # If these are equal then quantity is from the exchanges and we don't need recalculation
         if self.order_qty == exchange_order_qty:
@@ -140,37 +147,47 @@ class CryptonTrade(object):
         self.notify(self.best_bid)
 
     def get_exchange_balances(self, best_ask, best_bid):
-        # How much volume can I buy with my payment currency (we need to calculate it)
-        quote_currency = best_ask.exchange_market.quote_coin
-        quote_currency_balance = best_ask.exchange.get_balance(symbol=quote_currency)
-        ask_exchange_qty = quote_currency_balance / best_ask.first_price_with_fee
+        msg = "Not enough {} on {}. Current balance: {}"
+
+        # How much volume can I buy with my payment currency
+        quote_currency_balance = best_ask.exchange.get_balance(symbol=self.quote_coin)
+        if self.min_quote_qty > quote_currency_balance:
+            self.notify(msg.format(self.quote_coin, self.best_ask.exchange_id, quote_currency_balance))
+            return False
+
+        self.ask_exchange_qty = quote_currency_balance / best_ask.first_price_with_fee
+        if self.min_base_qty > self.ask_exchange_qty:
+            self.notify(msg.format(self.base_coin, self.best_ask.exchange_id, self.ask_exchange_qty))
+            return False
 
         # How much volume can I sell due to how much I have in balance
-        base_currency = best_bid.exchange_market.base_coin
-        bid_exchange_qty = best_bid.exchange.get_balance(symbol=base_currency)
+        self.bid_exchange_qty = best_bid.exchange.get_balance(symbol=self.base_coin)
+        if self.min_base_qty > self.bid_exchange_qty:
+            self.notify(msg.format(self.base_coin, self.best_bid.exchange_id, self.bid_exchange_qty))
+            return False
 
-        # Check if we have enough on balance to proceed on both exchanges (not stopping)
-        self.check_enough_balance(best_ask, best_bid, ask_exchange_qty, bid_exchange_qty)
+        return True
 
-        return min(ask_exchange_qty, bid_exchange_qty)
-
-    def check_enough_balance(self, best_ask, best_bid, ask_exchange_qty, bid_exchange_qty):
+    def check_enough_balance(self, ask_exchange_qty, bid_exchange_qty, quote_currency_balance):
         if self.min_base_qty >= bid_exchange_qty:
             self.notify(
                 "Not enough {} on {}. Current balance: {}".format(
-                    best_bid.exchange_market.base_coin,
-                    best_bid.exchange_id,
+                    self.best_bid.exchange_market.base_coin,
+                    self.best_bid.exchange_id,
                     bid_exchange_qty
                 )
             )
+            return False
         elif self.min_base_qty >= ask_exchange_qty:
             self.notify(
                 "Not enough {} on {}. Current balance: {}".format(
-                    best_ask.exchange_market.quote_coin,
-                    best_ask.exchange_id,
+                    self.best_ask.exchange_market.quote_coin,
+                    self.best_ask.exchange_id,
                     ask_exchange_qty
                 )
             )
+            return False
+        return True
 
     def adequate_profit(self):
         """
