@@ -391,7 +391,8 @@ def activate_crypton(
         trade.start()
 
         # Update the balance information with the latest from the exchange
-        update_local_balances_from_exchanges(exchanges)
+        if trade.successful is not None:
+            update_local_balances_from_exchanges(exchanges)
 
 
 if __name__ == "__main__":
