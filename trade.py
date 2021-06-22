@@ -415,6 +415,7 @@ def activate_crypton(
 
         # Update the balance information with the latest from the exchange
         if trade.successful is not None:
+            sleep_now(seconds=5)
             update_local_balances_from_exchanges(exchanges)
 
         counter += 1

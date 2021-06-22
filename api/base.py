@@ -56,6 +56,17 @@ class BaseAPI(object):
         """
         raise NotImplementedError("fetch_order_book not implemented for this API")
 
+    async def fetch_markets(self, *args, **kwargs):
+        """
+        Returns:
+            dict:
+                "symbol": "ETH/BTC"
+                "base": "ETH"
+                "quote": "BTC"
+        """
+        raise NotImplementedError("fetch_markets not implemented for this API")
+
+
     async def fetch_balance(self, *args, **kwargs):
         """
         Returns:

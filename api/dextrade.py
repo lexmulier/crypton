@@ -24,7 +24,11 @@ class DexTradeAPI(BaseAPI):
         url = "https://api.dex-trade.com/v1/public/symbols"
         response = await self.get(url)
         markets = [
-            {"symbol": "{}/{}".format(x["base"], x["quote"]), "base": x["base"], "quote": x["quote"]}
+            {
+                "symbol": "{}/{}".format(x["base"], x["quote"]),
+                "base": x["base"],
+                "quote": x["quote"]
+            }
             for x in response["data"]
         ]
         return markets
