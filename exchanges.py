@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 
 from api.get_client import get_client
 from config import EXCHANGES
@@ -62,18 +63,24 @@ class Exchange(object):
 
     def get_balance(self, symbol=None, from_database=False):
         if from_database or not self.balance:
-            balance = db.client.balance.find_one({"exchange": self.exchange_id}, {"balance": True})
+            balance = db.client.balance_current.find_one({"exchange": self.exchange_id}, {"balance": True})
             self.balance.update(balance["balance"])
         return self.balance.get(symbol, 0.0)
 
     async def _retrieve_balance(self):
         balance = await self.client.fetch_balance()
         if balance:
-            db.client.balance.update_one(
+            db.client.balance_current.update_one(
                 {"exchange": self.exchange_id},
-                {"$set": {"balance.{}".format(coin): balance for coin, balance in balance.items()}},
+                {"$set": {"balance.{}".format(coin): available for coin, available in balance.items()}},
                 upsert=True
             )
+            timestamp = datetime.datetime.now()
+            history = [
+                {"balance": available, "coin": coin, "exchange": self.exchange_id, "timestamp": timestamp}
+                for coin, available in balance.items()
+            ]
+            db.client.balance_history.insert_many(history)
         self.balance.update(balance)
 
     async def retrieve_balance(self):

@@ -210,7 +210,8 @@ class CryptonTrade(object):
 
         # We want to order at least a certain amount to avoid small trading
         if self.order_qty <= self.min_base_qty:
-            self.notify("Skipping: Order quantity is below minimal quantity ({})".format(self.min_base_qty))
+            msg = "Skipping: Order quantity {} is below minimal quantity ({})"
+            self.notify(msg.format(self.order_qty, self.min_base_qty))
             return False
 
         # Check if there is arbitrage because the ask price is higher than the bid price
@@ -304,12 +305,14 @@ class CryptonTrade(object):
                     "price": self.best_ask.actual_price,
                     "price_with_fee": self.best_ask.actual_price_with_fee,
                     "timestamp": self.best_ask.timestamp,
+                    "quantity": self.order_qty,
                     "filled": self.best_ask.status
                 },
                 "bid": {
                     "exchange_order_id": str(self.best_bid.exchange_order_id),
                     "price": self.best_bid.actual_price,
                     "price_with_fee": self.best_bid.actual_price_with_fee,
+                    "quantity": self.order_qty,
                     "timestamp": self.best_bid.timestamp,
                     "filled": self.best_bid.status
                 },
@@ -345,8 +348,10 @@ class CryptonTrade(object):
         self.notify("Something is wrong! Could not verify if orders are successful")
 
 
-def refresh_exchange_balances_from_database(counter, exchanges):
-    if counter % 20 == 0:
+def refresh_exchange_balances(counter, exchanges):
+    if counter % 1000 == 0:
+        update_local_balances_from_exchanges(exchanges)
+    elif counter % 20 == 0:
         for exchange in exchanges.values():
             exchange.get_balance(from_database=True)
 
@@ -355,6 +360,22 @@ def update_local_balances_from_exchanges(exchanges):
     loop = asyncio.get_event_loop()
     tasks = [exchange.retrieve_balance() for exchange in exchanges.values()]
     loop.run_until_complete(asyncio.gather(*tasks))
+
+
+def upsert_market_pair(market, exchange_ids):
+    market_pair_id = "_".join([*sorted(exchange_ids), market]).upper()
+    timestamp = datetime.datetime.now()
+    market_pair_info = {
+        "market_pair_id": market_pair_id,
+        "exchanges": exchange_ids,
+        "market": market,
+        "last_run": timestamp
+    }
+    db.client.market_pairs.update_one(
+        {"market_pair_id": market_pair_id},
+        {"$set": market_pair_info, "$setOnInsert": {"first_run": timestamp}},
+        upsert=True
+    )
 
 
 def activate_crypton(
@@ -367,14 +388,14 @@ def activate_crypton(
         sleep_time=0.1,
         verbose=False
 ):
+    upsert_market_pair(market, exchange_ids)
     exchanges = initiate_exchanges(exchange_ids, preload_market=market, verbose=verbose)
 
     counter = 0
     while True:
-        counter += 1
 
-        # Refresh balance from the database
-        refresh_exchange_balances_from_database(counter, exchanges)
+        # Refresh balance from the database and sometimes from the exchange
+        refresh_exchange_balances(counter, exchanges)
 
         # Sleep to avoid a API overload
         if sleep_time is not None:
@@ -395,6 +416,8 @@ def activate_crypton(
         # Update the balance information with the latest from the exchange
         if trade.successful is not None:
             update_local_balances_from_exchanges(exchanges)
+
+        counter += 1
 
 
 if __name__ == "__main__":
