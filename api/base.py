@@ -34,18 +34,74 @@ class BaseAPI(object):
         async with self.session.delete(url, data=data, headers=headers) as response:
             return await response.json()
 
-    async def fetch_fees(self, _):
-        self.notify("Using not implemented fetch_fees")
-        return {"maker": 0.2, "taker": 0.2}
+    async def fetch_fees(self, *args, **kwargs):
+        """
+        Args:
+            symbol (str): "ETH/BTC"
+
+        Returns:
+            dict: {"maker": 0.002, "taker", 0.002}
+        """
+        raise NotImplementedError("fetch_fees not implemented for this API")
+
+    async def fetch_order_book(self, *args, **kwargs):
+        """
+        Args:
+            symbol (str): "ETH/BTC"
+            limit (int): 20, amount of order book lines to return, optional.
+
+        Returns:
+            list: Asks [[price, quantity], [price, quantity], ...]
+            list: Bids [[price, quantity], [price, quantity], ...]
+        """
+        raise NotImplementedError("fetch_order_book not implemented for this API")
 
     async def fetch_balance(self, *args, **kwargs):
-        raise NotImplementedError("Fetch balance order not implemented for this API")
+        """
+        Returns:
+            dict: {"ETH": 200.0, "BTC": 2.4, ...}
+        """
+        raise NotImplementedError("fetch_balance order not implemented for this API")
 
-    async def fetch_order_status(self, _):
-        raise NotImplementedError("Fetch order status not implemented for this API")
+    async def fetch_order_status(self, *args, **kwargs):
+        """
+        Args:
+            order_id (str): The orderid that was returned from the order, can also be User Order Id
+
+        Returns:
+            dict:
+                "price": float,
+                "quantity": float,
+                "fee": float (flat, total fee),
+                "timestamp": datetime.datetime.now(),
+                "filled": bool
+        """
+        raise NotImplementedError("fetch_order_status not implemented for this API")
 
     async def create_order(self, *args, **kwargs):
-        raise NotImplementedError("Create order not implemented for this API")
+        """
+        Args:
+            id (str): Custom Order Id
+            symbol (str): "ETH/BTC"
+            qty (float): 2000.0
+            price (float): 0.05
+            side (str): "buy" or "sell"
+
+        Returns:
+            bool: True if order had a successful response message
+            _id: return the (updated) order id coming from the exchange. Needed for order status check.
+        """
+        raise NotImplementedError("create_order not implemented for this API")
+
+    def cancel_order(self, *args, **kwargs):
+        """
+        Args:
+            order_id (str): Order Id from the exchange (either supplied by us or new by exchange)
+
+        Returns:
+            bool: True if the order has return message without error.
+        """
+        raise NotImplemented("cancel_order is not implemented here")
 
     @staticmethod
     async def fetch_exchange_specifics():
@@ -58,6 +114,3 @@ class BaseAPI(object):
     @staticmethod
     def _nonce():
         return str(int(time.time() * 1000))
-
-    def cancel_order(self, order_id, *args, **kwargs):
-        raise NotImplemented("cancel_order is not implemented here")

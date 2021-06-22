@@ -58,7 +58,7 @@ class KuCoinAPI(BaseAPI):
             if row["type"] == "trade"
         }
 
-    async def create_order(self, _id, symbol, qty, price, side, _type=None):
+    async def create_order(self, _id, symbol, qty, price, side):
         endpoint = "/api/v1/orders"
         url = self._base_url + endpoint
         data = {

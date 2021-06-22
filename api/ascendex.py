@@ -85,7 +85,7 @@ class AscendexAPI(BaseAPI):
         response = await self.get(url, headers=headers)
         print(response)
 
-    async def create_order(self, _id, symbol, qty, price, side, _type=None):
+    async def create_order(self, _id, symbol, qty, price, side):
         url = self._private_base_url + "/api/pro/v1/cash/order"
         nonce = self._nonce()
         order_id = self._create_order_id(_id, nonce)

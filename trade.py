@@ -423,6 +423,6 @@ def activate_crypton(
 if __name__ == "__main__":
     market = "MITX/USDT"
     exchange_ids = ["ascendex", "kucoin"]
-    activate_crypton(market, exchange_ids, min_quote_qty=5.0, verbose=True)
+    activate_crypton(market, exchange_ids, min_quote_qty=5.0, min_base_qty=10.0, verbose=True)
 
 
