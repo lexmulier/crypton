@@ -149,9 +149,6 @@ class CryptonTrade(object):
                 self.min_quote_qty
             )
 
-        self.notify(self.best_ask)
-        self.notify(self.best_bid)
-
     def get_exchange_balances(self):
         msg = "Not enough {} on {}. Current balance: {}"
 
@@ -228,6 +225,9 @@ class CryptonTrade(object):
         adequate_margin, profit_perc, profit_amount = self.adequate_profit()
         if not adequate_margin:
             return False
+
+        self.notify(self.best_ask)
+        self.notify(self.best_bid)
 
         # Notify about the profit
         message = "Profit margin: {}% | Profit in {}: {}"

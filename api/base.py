@@ -66,7 +66,6 @@ class BaseAPI(object):
         """
         raise NotImplementedError("fetch_markets not implemented for this API")
 
-
     async def fetch_balance(self, *args, **kwargs):
         """
         Returns:
