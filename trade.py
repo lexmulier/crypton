@@ -21,6 +21,7 @@ class CryptonTrade(object):
             min_profit_amount=None,
             min_base_qty=None,
             min_quote_qty=None,
+            market_pair_id=None,
             verbose=True
     ):
         self.market = market
@@ -31,6 +32,10 @@ class CryptonTrade(object):
         self.min_profit_amount = min_profit_amount if min_profit_amount is not None else self._min_profit_amount
         self.min_base_qty = min_base_qty if min_base_qty is not None else 0.0
         self.min_quote_qty = min_quote_qty if min_quote_qty is not None else 0.0
+
+        market_pair_id = market_pair_id or "_".join([*sorted([e.exchange_id for e in exchanges]), market])
+        self.market_pair_id = market_pair_id.upper()
+
         self.verbose = verbose
 
         self.trade_id = ObjectId()
@@ -281,6 +286,8 @@ class CryptonTrade(object):
             "ask_exchange": self.best_ask.exchange_id,
             "bid_exchange": self.best_bid.exchange_id,
             "market": self.market,
+            "order_quantity": self.order_qty,
+            "market_pair_id": self.market_pair_id,
             "expected": {
                 "ask": {
                     "price": self.best_ask.best_price,
@@ -376,6 +383,7 @@ def upsert_market_pair(market, exchange_ids):
         {"$set": market_pair_info, "$setOnInsert": {"first_run": timestamp}},
         upsert=True
     )
+    return market_pair_id
 
 
 def activate_crypton(
@@ -388,7 +396,7 @@ def activate_crypton(
         sleep_time=0.1,
         verbose=False
 ):
-    upsert_market_pair(market, exchange_ids)
+    market_pair_id = upsert_market_pair(market, exchange_ids)
     exchanges = initiate_exchanges(exchange_ids, preload_market=market, verbose=verbose)
 
     counter = 0
@@ -409,6 +417,7 @@ def activate_crypton(
             min_profit_amount=min_profit_amount,
             min_base_qty=min_base_qty,
             min_quote_qty=min_quote_qty,
+            market_pair_id=market_pair_id,
             verbose=verbose
         )
         trade.start()
