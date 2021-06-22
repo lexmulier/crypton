@@ -19,7 +19,6 @@ class KuCoinAPI(BaseAPI):
     async def fetch_markets(self):
         url = self._base_url + "/api/v1/symbols"
         response = await self.get(url)
-        print(response)
         return [
             {
                 "symbol": "{}/{}".format(x["baseCurrency"], x["quoteCurrency"]),
