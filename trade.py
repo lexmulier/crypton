@@ -33,7 +33,7 @@ class CryptonTrade(object):
         self.min_base_qty = min_base_qty if min_base_qty is not None else 0.0
         self.min_quote_qty = min_quote_qty if min_quote_qty is not None else 0.0
 
-        market_pair_id = market_pair_id or "_".join([*sorted([e.exchange_id for e in exchanges]), market])
+        market_pair_id = market_pair_id or "_".join([*sorted(exchanges), market])
         self.market_pair_id = market_pair_id.upper()
 
         self.verbose = verbose
