@@ -111,23 +111,26 @@ class CryptonTrade(object):
         return success, best_exchange_asks, best_exchange_bids
 
     def get_best_opportunity(self):
-        # Filter the opportunities based on arbitrage and qty in exchanges
+        # Get the total order we can make while there is still arbitrage
         self.ask.opportunity(self.bid.first_price_with_fee, max_quote_qty=self.ask_quote_exchange_qty)
         self.bid.opportunity(self.ask.first_price_with_fee, max_base_qty=self.bid_base_exchange_qty)
 
         # Need to recalculate the quantity based on the result of the lowest exchange/balance
         if self.ask.base_qty > self.bid.base_qty:
+            # The bid exchange is dictating the maximum amount, recalculating the ask exchange using the new qty
             self.notify("Taking order quantity from bid quantity: {} {}".format(self.bid.base_qty, self.base_coin))
             self.ask.opportunity(self.bid.first_price_with_fee, max_base_qty=self.bid.base_qty)
 
         elif self.bid.base_qty > self.ask.base_qty:
+            # The ask exchange is dictating the maximum amount, recalculating the bid exchange using the new qty
             self.notify("Taking order quantity from ask quantity: {} {}".format(self.ask.base_qty, self.base_coin))
             self.bid.opportunity(self.ask.first_price_with_fee, max_base_qty=self.ask.base_qty)
 
+        # This should always be equal, the base qty never differs, the quote qty does (due to price difference)
         assert self.ask.base_qty == self.bid.base_qty
 
-        self.bid_base_order_qty = self.bid.base_qty
-        self.ask_quote_order_qty = self.ask.quote_qty
+        self.bid_base_order_qty = self.bid.base_qty  # The BID exchange is where we care about the base qty
+        self.ask_quote_order_qty = self.ask.quote_qty  # The ASK exchange is where we care about the quote qty
 
     def get_exchange_balances(self):
         msg = "Not enough {} on {}. Current balance: {}"

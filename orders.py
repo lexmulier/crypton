@@ -144,7 +144,8 @@ class OrderBase(object):
 
         self.base_qty = 0.0
         self.quote_qty = 0.0
-        # Loop all bids in the response from the exchange
+
+        # Loop all bids in the order book
         for row in self.order_book:
             price = row[0]
             base_qty = row[1]
@@ -152,7 +153,7 @@ class OrderBase(object):
             # Calculate the ask price including the fee
             price_with_fee = self._calculate_price_with_fee(price)
 
-            # Check if the offer price plus fee is better than the highest bid price with fee
+            # Compare the prices from the both exchanges, if this returns True there is no arbitrage
             if self._compare_price_opposite_exchange(price_with_fee, price_with_fee_opposite_exchange):
                 break
 
@@ -189,6 +190,7 @@ class OrderBase(object):
                 if max_quote_qty <= 0.0:
                     break
 
+        # Round all numbers
         self.price = round(self.price, self._precision)
         self.price_with_fee = round(self.price_with_fee, self._precision)
         self.base_qty = round(self.base_qty, self._precision)
