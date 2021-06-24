@@ -128,10 +128,18 @@ class OrderBase(object):
             if not result:
                 return
 
-            self.actual_price = result["price"]
-            self.actual_price_with_fee = result["fee"] / result["quantity"]
-            self.actual_base_qty = result["quantity"]
-            self.actual_quote_qty = self.actual_base_qty * self.actual_price_with_fee
+            self.actual_price = round(
+                result["price"], self.exchange_market.price_precision
+            )
+            self.actual_price_with_fee = round(
+                result["fee"] / result["quantity"], self.exchange_market.price_precision
+            )
+            self.actual_base_qty = round(
+                result["base_quantity"], self.exchange_market.base_precision
+            )
+            self.actual_quote_qty = round(
+                self.actual_base_qty * self.actual_price_with_fee, self.exchange_market.quote_precision
+            )
             self.timestamp = result["timestamp"]
 
             if result["filled"] is True:

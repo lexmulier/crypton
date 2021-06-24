@@ -322,8 +322,8 @@ class CryptonTrade(object):
                     "exchange_order_id": str(self.bid.exchange_order_id),
                     "price": self.bid.actual_price,
                     "price_with_fee": self.bid.actual_price_with_fee,
-                    "base_quantity": self.bid_base_order_qty,
                     "timestamp": self.bid.timestamp,
+                    "base_quantity": self.bid_base_order_qty,
                     "filled": self.bid.status
                 },
                 "profit_percentage": self.actual_profit_perc,

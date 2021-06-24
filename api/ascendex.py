@@ -78,7 +78,7 @@ class AscendexAPI(BaseAPI):
 
         data = {
             "price": float(response["data"]["price"]),
-            "quantity": float(response["data"]["orderQty"]),
+            "base_quantity": float(response["data"]["orderQty"]),
             "fee": float(response["data"]["cumFee"]),
             "timestamp": datetime.datetime.fromtimestamp(response["data"]["lastExecTime"] / 1000.0),
             "filled": response["data"]["status"] == "Filled"

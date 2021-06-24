@@ -86,7 +86,7 @@ class BaseAPI(object):
         Returns:
             dict:
                 "price": float,
-                "quantity": float,
+                "base_quantity": float,
                 "fee": float (flat, total fee),
                 "timestamp": datetime.datetime.now(),
                 "filled": bool

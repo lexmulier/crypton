@@ -111,7 +111,7 @@ class KuCoinAPI(BaseAPI):
 
         data = {
             "price": float(response["data"]["price"]),
-            "quantity": float(response["data"]["size"]),
+            "base_quantity": float(response["data"]["size"]),
             "fee": float(response["data"]["fee"]),
             "timestamp": datetime.datetime.fromtimestamp(response["data"]["createdAt"] / 1000.0),
             "filled": not response["data"]["isActive"] and not response["data"]["cancelExist"]
