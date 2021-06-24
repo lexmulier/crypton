@@ -52,8 +52,8 @@ class OrderBase(object):
                 self.symbol,
                 self.price,
                 self.price_with_fee,
-                self.quote_qty,
                 self.base_qty,
+                self.quote_qty,
             )
         return "{}({}, {}, first_price={}, first_price_with_fee={}, base_qty={})".format(
             self._type,
@@ -157,19 +157,19 @@ class OrderBase(object):
                 break
 
             # Calculate quote currency quantity
-            quote_qty = round(price_with_fee * base_qty, self._precision)
+            quote_qty = price_with_fee * base_qty
 
             if max_quote_qty is not None and quote_qty > max_quote_qty:
                 # We need to calculate the base quantity based on the quote quantity portion of the trade
                 factor = (max_quote_qty / quote_qty)
-                base_qty *= factor
-                quote_qty *= factor
+                base_qty = round(base_qty * factor, self._precision)
+                quote_qty = round(quote_qty * factor, self._precision)
 
             elif max_base_qty is not None and base_qty > max_base_qty:
                 # We need to calculate the base quantity based on the quote quantity portion of the trade
                 factor = (max_base_qty / base_qty)
-                base_qty *= factor
-                quote_qty *= factor
+                base_qty = base_qty * factor
+                quote_qty = quote_qty * factor
 
             # Set the price to this price
             self.price = price
@@ -188,6 +188,11 @@ class OrderBase(object):
                 max_quote_qty -= quote_qty
                 if max_quote_qty <= 0.0:
                     break
+
+        self.price = round(self.price, self._precision)
+        self.price_with_fee = round(self.price_with_fee, self._precision)
+        self.base_qty = round(self.base_qty, self._precision)
+        self.quote_qty = round(self.quote_qty, self._precision)
 
 
 class BestOrderBid(OrderBase):

@@ -47,8 +47,8 @@ class CryptonTrade(object):
 
         self.bid_base_exchange_qty = 0.0
         self.ask_quote_exchange_qty = 0.0
-        self.base_order_qty = 0.0
-        self.quote_order_qty = 0.0
+        self.bid_base_order_qty = 0.0
+        self.ask_quote_order_qty = 0.0
 
         self.expected_profit_perc = None
         self.expected_profit_amount = None
@@ -117,17 +117,17 @@ class CryptonTrade(object):
 
         # Need to recalculate the quantity based on the result of the lowest exchange/balance
         if self.ask.base_qty > self.bid.base_qty:
-            self.notify("Taking order quantity from best bid quantity")
+            self.notify("Taking order quantity from bid quantity: {} {}".format(self.bid.base_qty, self.base_coin))
             self.ask.opportunity(self.bid.first_price_with_fee, max_base_qty=self.bid.base_qty)
 
         elif self.bid.base_qty > self.ask.base_qty:
-            self.notify("Taking order quantity from best ask quantity")
+            self.notify("Taking order quantity from ask quantity: {} {}".format(self.ask.base_qty, self.base_coin))
             self.bid.opportunity(self.ask.first_price_with_fee, max_base_qty=self.ask.base_qty)
 
         assert self.ask.base_qty == self.bid.base_qty
 
-        self.base_order_qty = self.bid.base_qty
-        self.quote_order_qty = self.ask.quote_qty
+        self.bid_base_order_qty = self.bid.base_qty
+        self.ask_quote_order_qty = self.ask.quote_qty
 
     def get_exchange_balances(self):
         msg = "Not enough {} on {}. Current balance: {}"
@@ -143,6 +143,11 @@ class CryptonTrade(object):
         if self.min_base_qty > self.bid_base_exchange_qty or self.bid_base_exchange_qty == 0.0:
             self.notify(msg.format(self.base_coin, self.bid.exchange_id, self.bid_base_exchange_qty))
             return False
+
+        self.notify("{} {} on BID exchange {} | {} {} on ASK exchange {}".format(
+            self.bid_base_exchange_qty, self.base_coin, self.bid.exchange_id,
+            self.ask_quote_exchange_qty, self.quote_coin, self.ask.exchange_id,
+        ))
 
         return True
 
@@ -178,15 +183,15 @@ class CryptonTrade(object):
             return False
 
         # We want to order at least a certain amount to avoid small trading
-        if self.base_order_qty <= self.min_base_qty:
+        if self.bid_base_order_qty <= self.min_base_qty:
             msg = "Skipping: {} Order quantity {} is below minimal quantity ({})"
-            self.notify(msg.format(self.base_coin, self.base_order_qty, self.min_base_qty))
+            self.notify(msg.format(self.base_coin, self.bid_base_order_qty, self.min_base_qty))
             return False
 
         # We want to order at least a certain amount to avoid small trading
-        if self.quote_order_qty <= self.min_quote_qty:
+        if self.ask_quote_order_qty <= self.min_quote_qty:
             msg = "Skipping: {} Order quantity {} is below minimal quantity ({})"
-            self.notify(msg.format(self.quote_coin, self.quote_order_qty, self.min_quote_qty))
+            self.notify(msg.format(self.quote_coin, self.ask_quote_order_qty, self.min_quote_qty))
             return False
 
         # Check if there is arbitrage because the ask price is higher than the bid price
@@ -222,7 +227,7 @@ class CryptonTrade(object):
         self.notify(msg.format(
             "BUYING ",
             self.ask.exchange_id,
-            self.base_order_qty, 
+            self.bid_base_order_qty,
             self.ask.price,
             self.ask.price_with_fee,
             self.quote_coin
@@ -230,7 +235,7 @@ class CryptonTrade(object):
         self.notify(msg.format(
             "SELLING",
             self.bid.exchange_id,
-            self.base_order_qty,
+            self.bid_base_order_qty,
             self.bid.price,
             self.bid.price_with_fee,
             self.quote_coin
@@ -238,8 +243,8 @@ class CryptonTrade(object):
 
         loop = asyncio.get_event_loop()
         tasks = [
-            self.ask.buy(self.trade_id, self.base_order_qty, self.ask.price),
-            self.bid.sell(self.trade_id, self.base_order_qty, self.bid.price)
+            self.ask.buy(self.trade_id, self.bid_base_order_qty, self.ask.price),
+            self.bid.sell(self.trade_id, self.bid_base_order_qty, self.bid.price)
         ]
         response = loop.run_until_complete(asyncio.gather(*tasks))
 
@@ -270,7 +275,7 @@ class CryptonTrade(object):
             "ask_exchange": self.ask.exchange_id,
             "bid_exchange": self.bid.exchange_id,
             "market": self.market,
-            "order_quantity": self.base_order_qty,
+            "order_quantity": self.bid_base_order_qty,
             "market_pair_id": self.market_pair_id,
             "expected": {
                 "ask": {
@@ -298,14 +303,14 @@ class CryptonTrade(object):
                     "price": self.ask.actual_price,
                     "price_with_fee": self.ask.actual_price_with_fee,
                     "timestamp": self.ask.timestamp,
-                    "base_quantity": self.base_order_qty,
+                    "base_quantity": self.bid_base_order_qty,
                     "filled": self.ask.status
                 },
                 "bid": {
                     "exchange_order_id": str(self.bid.exchange_order_id),
                     "price": self.bid.actual_price,
                     "price_with_fee": self.bid.actual_price_with_fee,
-                    "base_quantity": self.base_order_qty,
+                    "base_quantity": self.bid_base_order_qty,
                     "timestamp": self.bid.timestamp,
                     "filled": self.bid.status
                 },
