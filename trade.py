@@ -42,8 +42,8 @@ class CryptonTrade(object):
         self.timestamp = datetime.datetime.now()
 
         self.successful = None
-        self.best_ask = None
-        self.best_bid = None
+        self.ask = None
+        self.bid = None
 
         self.bid_base_exchange_qty = 0.0
         self.ask_quote_exchange_qty = 0.0
@@ -59,7 +59,7 @@ class CryptonTrade(object):
         if self.verbose:
             print("TRADE {}:".format(self.trade_id if self.trade_id else ""), *args)
 
-    def start(self):
+    def start(self, simulate=False):
         self.notify('#' * 30)
 
         # Fetch orders from the exchanges
@@ -78,7 +78,7 @@ class CryptonTrade(object):
         self.get_best_opportunity()
 
         # Check if there is arbitrage and adequate profit
-        if not self.verify_arbitrage_and_profit():
+        if not self.verify_arbitrage_and_profit() or simulate:
             return
 
         # Place the orders
@@ -91,10 +91,10 @@ class CryptonTrade(object):
         self.save_to_database()
 
     def determine_ask_and_bid_exchange(self, best_exchange_asks, best_exchange_bids):
-        self.best_ask = min(best_exchange_asks)
-        self.best_bid = max(best_exchange_bids)
-        self.notify(self.best_ask)
-        self.notify(self.best_bid)
+        self.ask = min(best_exchange_asks)
+        self.bid = max(best_exchange_bids)
+        self.notify(self.ask)
+        self.notify(self.bid)
 
     def fetch_orders(self):
         loop = asyncio.get_event_loop()
@@ -112,37 +112,36 @@ class CryptonTrade(object):
 
     def get_best_opportunity(self):
         # Filter the opportunities based on arbitrage and qty in exchanges
-        self.best_ask.opportunity(self.best_bid.first_price_with_fee, self.ask_quote_exchange_qty)
-        self.best_bid.opportunity(self.best_ask.first_price_with_fee, self.bid_base_exchange_qty)
+        self.ask.opportunity(self.bid.first_price_with_fee, max_quote_qty=self.ask_quote_exchange_qty)
+        self.bid.opportunity(self.ask.first_price_with_fee, max_base_qty=self.bid_base_exchange_qty)
 
-        # Which quantity is dictating how much we're buying?
-        if self.best_ask.best_base_qty > self.best_bid.best_base_qty:
+        # Need to recalculate the quantity based on the result of the lowest exchange/balance
+        if self.ask.base_qty > self.bid.base_qty:
             self.notify("Taking order quantity from best bid quantity")
-            self.best_ask.opportunity(self.best_bid.first_price_with_fee, self.best_bid.best_quote_qty)
+            self.ask.opportunity(self.bid.first_price_with_fee, max_base_qty=self.bid.base_qty)
 
-        elif self.best_bid.best_base_qty > self.best_ask.best_base_qty:
+        elif self.bid.base_qty > self.ask.base_qty:
             self.notify("Taking order quantity from best ask quantity")
-            self.best_bid.opportunity(self.best_ask.first_price_with_fee, self.best_ask.best_base_qty)
+            self.bid.opportunity(self.ask.first_price_with_fee, max_base_qty=self.ask.base_qty)
 
-        # assert self.best_ask.best_base_qty == self.best_bid.best_base_qty
-        # TODO: There is a difference in quantity because of different prices
+        assert self.ask.base_qty == self.bid.base_qty
 
-        self.base_order_qty = self.best_bid.best_base_qty
-        self.quote_order_qty = self.best_ask.best_quote_qty
+        self.base_order_qty = self.bid.base_qty
+        self.quote_order_qty = self.ask.quote_qty
 
     def get_exchange_balances(self):
         msg = "Not enough {} on {}. Current balance: {}"
 
         # How much volume can I buy with my payment currency
-        self.ask_quote_exchange_qty = self.best_ask.exchange.get_balance(symbol=self.quote_coin)
+        self.ask_quote_exchange_qty = self.ask.exchange.get_balance(symbol=self.quote_coin)
         if self.min_quote_qty > self.ask_quote_exchange_qty:
-            self.notify(msg.format(self.quote_coin, self.best_ask.exchange_id, self.ask_quote_exchange_qty))
+            self.notify(msg.format(self.quote_coin, self.ask.exchange_id, self.ask_quote_exchange_qty))
             return False
 
         # How much volume can I sell due to how much I have in balance
-        self.bid_base_exchange_qty = self.best_bid.exchange.get_balance(symbol=self.base_coin)
+        self.bid_base_exchange_qty = self.bid.exchange.get_balance(symbol=self.base_coin)
         if self.min_base_qty > self.bid_base_exchange_qty or self.bid_base_exchange_qty == 0.0:
-            self.notify(msg.format(self.base_coin, self.best_bid.exchange_id, self.bid_base_exchange_qty))
+            self.notify(msg.format(self.base_coin, self.bid.exchange_id, self.bid_base_exchange_qty))
             return False
 
         return True
@@ -151,13 +150,10 @@ class CryptonTrade(object):
         """
         Return False if we consider the profit margin not large enough
         """
-        bid_price = self.best_bid.best_price_with_fee
-        ask_price = self.best_ask.best_price_with_fee
+        profit_amount = self.bid.quote_qty - self.ask.quote_qty
+        profit_perc = (profit_amount / self.bid.quote_qty) * 100.0
 
-        profit_perc = ((bid_price - ask_price) / ask_price) * 100.0
         adequate_margin_perc = profit_perc >= self.min_profit_perc
-
-        profit_amount = self.best_bid.best_quote_qty - self.best_ask.best_quote_qty
         adequate_margin_amount = profit_amount >= self.min_profit_amount
 
         if not adequate_margin_amount and not adequate_margin_perc:
@@ -177,7 +173,7 @@ class CryptonTrade(object):
         this is an arbitrage opportunity.
         """
         # Check if the best ask and best bid are on different exchanges.
-        if self.best_ask.exchange_id == self.best_bid.exchange_id:
+        if self.ask.exchange_id == self.bid.exchange_id:
             self.notify("Skipping: Best ask and best bid are on the same exchange")
             return False
 
@@ -194,13 +190,13 @@ class CryptonTrade(object):
             return False
 
         # Check if there is arbitrage because the ask price is higher than the bid price
-        if self.best_ask > self.best_bid:
+        if self.ask > self.bid:
             #TODO: Probably not needed.
             self.notify("Skipping: Asking price is higher than bid price")
             return False
 
         # If these lists are empty then there is no arbitrage
-        if not self.best_ask.opportunity_found or not self.best_bid.opportunity_found:
+        if not self.ask.opportunity_found or not self.bid.opportunity_found:
             self.notify("Skipping: No good arbitrage opportunities found".format(self.min_base_qty))
             return False
 
@@ -209,8 +205,8 @@ class CryptonTrade(object):
         if not adequate_margin:
             return False
 
-        self.notify(self.best_ask)
-        self.notify(self.best_bid)
+        self.notify(self.ask)
+        self.notify(self.bid)
 
         # Notify about the profit
         message = "Profit margin: {}% | Profit in {}: {}"
@@ -222,18 +218,28 @@ class CryptonTrade(object):
         return True
 
     def initiate_orders(self):
-        msg = "{} @ {}: quantity={} | price_with_fee={} {}"
+        msg = "{} @ {}: quantity={} | price={} | price_with_fee={} {}"
         self.notify(msg.format(
-            "BUYING ", self.best_ask.exchange_id, self.order_qty, self.best_ask.best_price_with_fee, self.quote_coin
+            "BUYING ",
+            self.ask.exchange_id,
+            self.base_order_qty, 
+            self.ask.price,
+            self.ask.price_with_fee,
+            self.quote_coin
         ))
         self.notify(msg.format(
-            "SELLING", self.best_bid.exchange_id, self.order_qty, self.best_bid.best_price_with_fee, self.quote_coin
+            "SELLING",
+            self.bid.exchange_id,
+            self.base_order_qty,
+            self.bid.price,
+            self.bid.price_with_fee,
+            self.quote_coin
         ))
 
         loop = asyncio.get_event_loop()
         tasks = [
-            self.best_ask.buy(self.trade_id, self.order_qty, self.best_ask.best_price),
-            self.best_bid.sell(self.trade_id, self.order_qty, self.best_bid.best_price)
+            self.ask.buy(self.trade_id, self.base_order_qty, self.ask.price),
+            self.bid.sell(self.trade_id, self.base_order_qty, self.bid.price)
         ]
         response = loop.run_until_complete(asyncio.gather(*tasks))
 
@@ -242,17 +248,17 @@ class CryptonTrade(object):
 
         if not any([sell_order_success, buy_order_success]):
             msg = "Error! Trying to cancel both (sell: {}, buy: {})"
-            self.notify(msg.format(self.best_bid.order_id, self.best_ask.order_id))
+            self.notify(msg.format(self.bid.order_id, self.ask.order_id))
             self.cancel_orders()
             raise ValueError("Order placement was not successful")
 
     def cancel_orders(self):
         loop = asyncio.get_event_loop()
-        tasks = [self.best_ask.cancel(), self.best_bid.cancel()]
+        tasks = [self.ask.cancel(), self.bid.cancel()]
         response = loop.run_until_complete(asyncio.gather(*tasks))
 
-        self.best_ask.exchange.notify("Cancelled order {} success: {}".format(self.best_ask.order_id, response[0]))
-        self.best_bid.exchange.notify("Cancelled order {} success: {}".format(self.best_bid.order_id, response[1]))
+        self.ask.exchange.notify("Cancelled order {} success: {}".format(self.ask.order_id, response[0]))
+        self.bid.exchange.notify("Cancelled order {} success: {}".format(self.bid.order_id, response[1]))
 
         return response[0] and response[1]
 
@@ -261,45 +267,47 @@ class CryptonTrade(object):
             "_id": self.trade_id,
             "orders_verified": self.successful,
             "timestamp": self.timestamp,
-            "ask_exchange": self.best_ask.exchange_id,
-            "bid_exchange": self.best_bid.exchange_id,
+            "ask_exchange": self.ask.exchange_id,
+            "bid_exchange": self.bid.exchange_id,
             "market": self.market,
-            "order_quantity": self.order_qty,
+            "order_quantity": self.base_order_qty,
             "market_pair_id": self.market_pair_id,
             "expected": {
                 "ask": {
-                    "price": self.best_ask.best_price,
-                    "price_with_fee": self.best_ask.best_price_with_fee,
-                    "quantity": self.best_ask.best_quantity,
-                    "opportunities": self.best_ask.opportunities,
-                    "asks": self.best_ask.asks,
+                    "price": self.ask.price,
+                    "price_with_fee": self.ask.price_with_fee,
+                    "base_quantity": self.ask.base_qty,
+                    "quote_quantity": self.ask.quote_qty,
+                    "opportunities": self.ask.opportunities,
+                    "asks": self.ask.asks,
                 },
                 "bid": {
-                    "price": self.best_bid.best_price,
-                    "price_with_fee": self.best_bid.best_price_with_fee,
-                    "quantity": self.best_bid.best_quantity,
-                    "opportunities": self.best_bid.opportunities,
-                    "bids": self.best_bid.bids,
+                    "price": self.bid.price,
+                    "price_with_fee": self.bid.price_with_fee,
+                    "base_quantity": self.bid.base_qty,
+                    "quote_quantity": self.bid.quote_qty,
+                    "opportunities": self.bid.opportunities,
+                    "bids": self.bid.bids,
                 },
                 "profit_percentage": self.expected_profit_perc,
                 "profit_amount": self.expected_profit_amount,
             },
             "actual": {
                 "ask": {
-                    "exchange_order_id": str(self.best_ask.exchange_order_id),
-                    "price": self.best_ask.actual_price,
-                    "price_with_fee": self.best_ask.actual_price_with_fee,
-                    "timestamp": self.best_ask.timestamp,
-                    "quantity": self.order_qty,
-                    "filled": self.best_ask.status
+                    "exchange_order_id": str(self.ask.exchange_order_id),
+                    "price": self.ask.actual_price,
+                    "price_with_fee": self.ask.actual_price_with_fee,
+                    "timestamp": self.ask.timestamp,
+                    "base_quantity": self.base_order_qty,
+                    "filled": self.ask.status
                 },
                 "bid": {
-                    "exchange_order_id": str(self.best_bid.exchange_order_id),
-                    "price": self.best_bid.actual_price,
-                    "price_with_fee": self.best_bid.actual_price_with_fee,
-                    "quantity": self.order_qty,
-                    "timestamp": self.best_bid.timestamp,
-                    "filled": self.best_bid.status
+                    "exchange_order_id": str(self.bid.exchange_order_id),
+                    "price": self.bid.actual_price,
+                    "price_with_fee": self.bid.actual_price_with_fee,
+                    "base_quantity": self.base_order_qty,
+                    "timestamp": self.bid.timestamp,
+                    "filled": self.bid.status
                 },
                 "profit_percentage": self.actual_profit_perc,
                 "profit_amount": self.actual_profit_amount,
@@ -312,7 +320,7 @@ class CryptonTrade(object):
         for i in range(20):
             tasks = [
                 order.get_status()
-                for order in [self.best_ask, self.best_bid]
+                for order in [self.ask, self.bid]
                 if order.status != order.STATUS_FILLED
             ]
             if tasks:
@@ -323,10 +331,8 @@ class CryptonTrade(object):
                 self.notify("Both orders successful!")
                 self.successful = True
 
-                bid_price = self.best_bid.actual_price_with_fee
-                ask_price = self.best_ask.actual_price_with_fee
-                self.actual_profit_perc = ((bid_price - ask_price) / ask_price) * 100.0
-                self.actual_profit_amount = self.best_bid.best_offer - self.best_ask.best_offer
+                self.actual_profit_amount = self.bid.actual_quote_qty - self.ask.actual_quote_qty
+                self.actual_profit_perc = (self.actual_profit_amount / self.bid.actual_quote_qty) * 100.0
                 return
 
         self.successful = False

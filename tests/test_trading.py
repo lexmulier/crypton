@@ -48,7 +48,65 @@ async def prepare_exchanges(left_asks, left_bids, left_balance, right_asks, righ
 
 @pytest.mark.asyncio
 @mock.patch('exchanges.get_client')
-async def test_profit_calculation(_):
+async def test_base_exchange_balance_is_lowest(_):
+    # LEFT SIDE IS THE BID EXCHANGE, BASE CURRENCY IS DRIVING
+    # Asks are always ascending
+    left_asks = [[10000.0, 10.0]]  # Extra high to ignore this one
+    # Bids are always descending
+    left_bids = [
+        [1015.0, 10.0],  # There is arbitrage here
+        [1014.0, 20.0],  # There is arbitrage here
+        [1013.0, 50.0],  # There is arbitrage here
+        [1012.0, 10.0],  # There is arbitrage here
+        [1011.0, 20.0],  # There is arbitrage here
+        [1010.0, 50.0],
+        [1009.0, 10.0],
+        [1008.0, 20.0],
+        [1007.0, 50.0]
+    ]
+    left_balance = {
+        "ETH": 70.0  # LOWEST!
+    }
+
+    # RIGHT SIDE IS THE ASK EXCHANGE, QUOTE CURRENCY IS DRIVING
+    # Asks are always ascending
+    right_asks = [
+        [1006.0, 10.0],  # There is arbitrage here
+        [1007.0, 20.0],  # There is arbitrage here
+        [1008.0, 50.0],  # There is arbitrage here
+        [1009.0, 10.0],  # There is arbitrage here
+        [1010.0, 20.0],   # There is arbitrage here
+        [1011.0, 50.0],
+        [1012.0, 10.0],
+        [1013.0, 20.0],
+        [1014.0, 50.0]
+    ]
+    # Bids are always descending
+    right_bids = [[100.0, 10.0]]  # Extra low to ignore this one
+    right_balance = {
+        "USDT": 100000.0
+    }
+
+    exchanges = await prepare_exchanges(left_asks, left_bids, left_balance, right_asks, right_bids, right_balance)
+
+    # Check and execute trade if there is an opportunity
+    trade = CryptonTrade(
+        market=MARKET,
+        exchanges=exchanges,
+        verbose=True
+    ).start(simulate=True)
+
+
+
+
+
+
+    assert False
+
+
+@pytest.mark.asyncio
+@mock.patch('exchanges.get_client')
+async def test_base_exchange_balance_is_lodwest(_):
     # LEFT
     # Asks are always ascending
     left_asks = [
@@ -104,8 +162,6 @@ async def test_profit_calculation(_):
 
 
     assert False
-
-
 
 
 

@@ -63,9 +63,9 @@ class CryptonExplore(object):
             "bid_exchange": bid.exchange.exchange_id,
             "arbitrage_margin": margin_percentage,
             "ask_price": ask.first_price,
-            "ask_quantity": ask.first_quantity,
+            "ask_quantity": ask.first_qty,
             "bid_price": bid.first_price,
-            "bid_quantity": bid.first_quantity,
+            "bid_quantity": bid.first_qty,
             "date": timestamp
         }
 
