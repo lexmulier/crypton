@@ -63,6 +63,11 @@ class BaseAPI(object):
                 "symbol": "ETH/BTC"
                 "base": "ETH"
                 "quote": "BTC"
+                "min_base_qty": 100.0
+                "min_quote_qty": 0.0001
+                "base_precision": 0.001
+                "quote_precision": 0.001
+                "price_precision": 0.001
         """
         raise NotImplementedError("fetch_markets not implemented for this API")
 
@@ -124,3 +129,22 @@ class BaseAPI(object):
     @staticmethod
     def _nonce():
         return str(int(time.time() * 1000))
+
+    @staticmethod
+    def _precision(value):
+        if "1" not in str(value):
+            raise ValueError("We have a precision without a 1 in it")
+
+        if float(value) < 1.0:
+            precision = value[::-1].find('.')
+        elif float(value) >= 1.0:
+            value = str(float(value))
+            precision = value.find('.') * -1
+        else:
+            raise ValueError("A precision we can't solve! {}".format(value))
+
+        return precision
+
+
+
+

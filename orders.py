@@ -1,7 +1,6 @@
 class OrderBase(object):
     _type = None
     _taker_or_maker = None
-    _precision = 8
 
     STATUS_NONE = "NONE"
     STATUS_ACTIVE = "ACTIVE"
@@ -126,6 +125,9 @@ class OrderBase(object):
         async with self.exchange.session_manager:
             result = await self.exchange.client.fetch_order_status(self.exchange_order_id)
 
+            if not result:
+                return
+
             self.actual_price = result["price"]
             self.actual_price_with_fee = result["fee"] / result["quantity"]
             self.actual_base_qty = result["quantity"]
@@ -163,8 +165,8 @@ class OrderBase(object):
             if max_quote_qty is not None and quote_qty > max_quote_qty:
                 # We need to calculate the base quantity based on the quote quantity portion of the trade
                 factor = (max_quote_qty / quote_qty)
-                base_qty = round(base_qty * factor, self._precision)
-                quote_qty = round(quote_qty * factor, self._precision)
+                base_qty = base_qty * factor
+                quote_qty = quote_qty * factor
 
             elif max_base_qty is not None and base_qty > max_base_qty:
                 # We need to calculate the base quantity based on the quote quantity portion of the trade
@@ -191,10 +193,10 @@ class OrderBase(object):
                     break
 
         # Round all numbers
-        self.price = round(self.price, self._precision)
-        self.price_with_fee = round(self.price_with_fee, self._precision)
-        self.base_qty = round(self.base_qty, self._precision)
-        self.quote_qty = round(self.quote_qty, self._precision)
+        self.price = round(self.price, self.exchange_market.price_precision)
+        self.price_with_fee = round(self.price_with_fee, self.exchange_market.price_precision)
+        self.base_qty = round(self.base_qty, self.exchange_market.base_precision)
+        self.quote_qty = round(self.quote_qty, self.exchange_market.quote_precision)
 
 
 class BestOrderBid(OrderBase):
@@ -214,7 +216,7 @@ class BestOrderBid(OrderBase):
 
     def _calculate_price_with_fee(self, price, fee=None):
         fee = fee if fee is not None else self.exchange_market.trading_fees[self._taker_or_maker]
-        return round((1.0 - fee) * price, self._precision)
+        return round((1.0 - fee) * price, self.exchange_market.price_precision)
 
     @staticmethod
     def _compare_price_opposite_exchange(price_with_fee, price_with_fee_opposite_exchange):
@@ -239,7 +241,7 @@ class BestOrderAsk(OrderBase):
 
     def _calculate_price_with_fee(self, price, fee=None):
         fee = fee if fee is not None else self.exchange_market.trading_fees[self._taker_or_maker]
-        return round((1.0 + fee) * price, self._precision)
+        return round((1.0 + fee) * price, self.exchange_market.price_precision)
 
     @staticmethod
     def _compare_price_opposite_exchange(price_with_fee, price_with_fee_opposite_exchange):

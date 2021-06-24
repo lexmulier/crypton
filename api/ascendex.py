@@ -29,7 +29,12 @@ class AscendexAPI(BaseAPI):
             {
                 "symbol": "{}/{}".format(x["baseAsset"], x["quoteAsset"]),
                 "base": x["baseAsset"],
-                "quote": x["quoteAsset"]
+                "quote": x["quoteAsset"],
+                "min_base_qty": 0.0,
+                "min_quote_qty": x["minNotional"],
+                "base_precision": self._precision(x["baseIncrement"]),
+                "quote_precision": self._precision(x["baseIncrement"]),
+                "price_precision": self._precision(x["tickSize"])
             }
             for x in response["data"]
         ]
@@ -68,6 +73,10 @@ class AscendexAPI(BaseAPI):
         headers = self._get_headers("order/status", self._nonce())
         url = self._private_base_url + "/api/pro/v1/cash/order/status?orderId={}".format(str(order_id))
         response = await self.get(url, headers=headers)
+
+        if response.get('code', 0) != 0:
+            self.notify("Error status retrieve: {}".format(response.get("message", "Error message N/A")))
+            return
 
         data = {
             "price": float(response["data"]["price"]),

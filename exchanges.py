@@ -33,79 +33,6 @@ class Exchange(object):
     async def _initiate_markets(self):
         markets = await self.client.fetch_markets()
 
-        # TODO: Add limit, precision, etc. from api
-
-        """
-        KUCION
-  {'symbol': 'SOLVE-BTC',
-   'name': 'SOLVE-BTC',
-   'baseCurrency': 'SOLVE',
-   'quoteCurrency': 'BTC',
-   'feeCurrency': 'BTC',
-   'market': 'BTC',
-   'baseMinSize': '1',
-   'quoteMinSize': '0.00001',
-   'baseMaxSize': '10000000000',
-   'quoteMaxSize': '99999999',
-   'baseIncrement': '0.001',
-   'quoteIncrement': '0.000001',
-   'priceIncrement': '0.00000001',
-   'priceLimitRate': '0.1',
-   'isMarginEnabled': False,
-   'enableTrading': True},
-  {'symbol': 'GRIN-BTC',
-   'name': 'GRIN-BTC',
-   'baseCurrency': 'GRIN',
-   'quoteCurrency': 'BTC',
-   'feeCurrency': 'BTC',
-   'market': 'BTC',
-   'baseMinSize': '0.01',
-   'quoteMinSize': '0.00001',
-   'baseMaxSize': '10000000000',
-   'quoteMaxSize': '99999999',
-   'baseIncrement': '0.00000001',
-   'quoteIncrement': '0.00000001',
-   'priceIncrement': '0.00000001',
-   'priceLimitRate': '0.1',
-   'isMarginEnabled': False,
-   'enableTrading': True},
-  {'symbol': 'GRIN-ETH',
-   'name': 'GRIN-ETH',
-   'baseCurrency': 'GRIN',
-   'quoteCurrency': 'ETH',
-   'feeCurrency': 'ETH',
-   'market': 'ALTS',
-   'baseMinSize': '0.01',
-   'quoteMinSize': '0.0001',
-   'baseMaxSize': '10000000000',
-   'quoteMaxSize': '99999999',
-   'baseIncrement': '0.00000001',
-   'quoteIncrement': '0.0000001',
-   'priceIncrement': '0.0000001',
-   'priceLimitRate': '0.1',
-   'isMarginEnabled': False,
-   'enableTrading': True},
-  {'symbol': 'GRIN-USDT',
-   'name': 'GRIN-USDT',
-   'baseCurrency': 'GRIN',
-   'quoteCurrency': 'USDT',
-   'feeCurrency': 'USDT',
-   'market': 'USDS',
-   'baseMinSize': '0.01',
-   'quoteMinSize': '0.01',
-   'baseMaxSize': '10000000000',
-   'quoteMaxSize': '99999999',
-   'baseIncrement': '0.00000001',
-   'quoteIncrement': '0.000001',
-   'priceIncrement': '0.000001',
-   'priceLimitRate': '0.1',
-   'isMarginEnabled': False,
-   'enableTrading': True}]}
-
-
-        
-        """
-
         market_symbols = []
         exchange_markets = {}
         for market in markets:
@@ -163,11 +90,23 @@ class Exchange(object):
 
 class ExchangeMarket(object):
 
+    _default_min_base_qty = 0.0
+    _default_min_quote_qty = 0.0
+
+    _default_base_precision = 8
+    _default_quote_precision = 8
+    _default_price_precision = 8
+
     def __init__(self, exchange, market, verbose=False):
         self.exchange = exchange
         self.symbol = market['symbol']
         self.base_coin = market.get('base', market.get('baseId'))
         self.quote_coin = market.get('quote', market.get('quoteId'))
+        self.min_base_qty = market.get('min_base_qty', self._default_min_base_qty)
+        self.min_quote_qty = market.get('min_quote_qty', self._default_min_quote_qty)
+        self.base_precision = market.get('base_precision', self._default_base_precision)
+        self.quote_precision = market.get('quote_precision', self._default_quote_precision)
+        self.price_precision = market.get('price_precision', self._default_price_precision)
 
         self.info = market
         self.verbose = verbose

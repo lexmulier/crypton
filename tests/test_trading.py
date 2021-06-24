@@ -5,7 +5,7 @@ import nest_asyncio
 
 from exchanges import Exchange
 from config import EXCHANGES
-from tests.mock_api import MockAPI
+from tests.testing_api import TestAPI
 from trade import CryptonTrade
 
 
@@ -72,7 +72,7 @@ async def prepare_exchanges(
     right_balance = right_balance or DEFAULT_RIGHT_BALANCE
 
     left_exchange = Exchange("left", preload_market=MARKET, verbose=True)
-    left_exchange.client = MockAPI(
+    left_exchange.client = TestAPI(
         side="left",
         market=MARKET,
         asks=left_asks,
@@ -83,7 +83,7 @@ async def prepare_exchanges(
     left_exchange.balance = left_balance
 
     right_exchange = Exchange("right", preload_market=MARKET, verbose=True)
-    right_exchange.client = MockAPI(
+    right_exchange.client = TestAPI(
         side="right",
         market=MARKET,
         asks=right_asks,

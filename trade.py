@@ -22,20 +22,22 @@ class CryptonTrade(object):
             min_base_qty=None,
             min_quote_qty=None,
             market_pair_id=None,
+            debug_mode=False,
             verbose=True
     ):
         self.market = market
         self.base_coin, self.quote_coin = market.split("/")
 
         self.exchanges = exchanges
+
         self.min_profit_perc = min_profit_perc if min_profit_perc is not None else self._min_profit_perc
         self.min_profit_amount = min_profit_amount if min_profit_amount is not None else self._min_profit_amount
-        self.min_base_qty = min_base_qty if min_base_qty is not None else 0.0
-        self.min_quote_qty = min_quote_qty if min_quote_qty is not None else 0.0
+        self.min_base_qty = min_base_qty
+        self.min_quote_qty = min_quote_qty
 
-        market_pair_id = market_pair_id or "_".join([*sorted(exchanges), market])
-        self.market_pair_id = market_pair_id.upper()
+        self.market_pair_id = market_pair_id or "_".join([*sorted(exchanges), market]).upper()
 
+        self.debug_mode = debug_mode
         self.verbose = verbose
 
         self.trade_id = ObjectId()
@@ -72,6 +74,7 @@ class CryptonTrade(object):
 
         # Get the balance on the exchanges
         if not self.get_exchange_balances():
+            self.save_to_database()
             return
 
         # Find the best opportunity based on ask/bid price, ask/bid quantity and available funds
@@ -79,6 +82,7 @@ class CryptonTrade(object):
 
         # Check if there is arbitrage and adequate profit
         if not self.verify_arbitrage_and_profit() or simulate:
+            self.save_to_database()
             return
 
         # Place the orders
@@ -88,13 +92,20 @@ class CryptonTrade(object):
         self.verify_orders()
 
         # Save full order information to the MongoDB database
-        self.save_to_database()
+        self.save_to_database(force=True)
 
     def determine_ask_and_bid_exchange(self, best_exchange_asks, best_exchange_bids):
+        # Pick the ask and bid exchange based on arbitrage.
         self.ask = min(best_exchange_asks)
         self.bid = max(best_exchange_bids)
         self.notify(self.ask)
         self.notify(self.bid)
+
+        # Now ask and bid are known, set the minimal quantity from the exchange if not forced by user
+        if self.min_base_qty is None:
+            self.min_base_qty = self.bid.exchange.markets[self.market].min_base_qty
+        if self.min_quote_qty is None:
+            self.min_quote_qty = self.ask.exchange.markets[self.market].min_quote_qty
 
     def fetch_orders(self):
         loop = asyncio.get_event_loop()
@@ -185,6 +196,11 @@ class CryptonTrade(object):
             self.notify("Skipping: Best ask and best bid are on the same exchange")
             return False
 
+        # If these lists are empty then there is no arbitrage
+        if not self.ask.opportunity_found or not self.bid.opportunity_found:
+            self.notify("Skipping: No good arbitrage opportunities found".format(self.min_base_qty))
+            return False
+
         # We want to order at least a certain amount to avoid small trading
         if self.bid_base_order_qty <= self.min_base_qty:
             msg = "Skipping: {} Order quantity {} is below minimal quantity ({})"
@@ -195,17 +211,6 @@ class CryptonTrade(object):
         if self.ask_quote_order_qty <= self.min_quote_qty:
             msg = "Skipping: {} Order quantity {} is below minimal quantity ({})"
             self.notify(msg.format(self.quote_coin, self.ask_quote_order_qty, self.min_quote_qty))
-            return False
-
-        # Check if there is arbitrage because the ask price is higher than the bid price
-        if self.ask > self.bid:
-            #TODO: Probably not needed.
-            self.notify("Skipping: Asking price is higher than bid price")
-            return False
-
-        # If these lists are empty then there is no arbitrage
-        if not self.ask.opportunity_found or not self.bid.opportunity_found:
-            self.notify("Skipping: No good arbitrage opportunities found".format(self.min_base_qty))
             return False
 
         # Check if the amount or percentage is high enough to take the risk
@@ -270,7 +275,10 @@ class CryptonTrade(object):
 
         return response[0] and response[1]
 
-    def save_to_database(self):
+    def save_to_database(self, force=True):
+        if not force and not self.debug_mode:
+            return
+
         data = {
             "_id": self.trade_id,
             "orders_verified": self.successful,
@@ -286,16 +294,16 @@ class CryptonTrade(object):
                     "price_with_fee": self.ask.price_with_fee,
                     "base_quantity": self.ask.base_qty,
                     "quote_quantity": self.ask.quote_qty,
-                    "opportunities": self.ask.opportunities,
-                    "asks": self.ask.asks,
+                    "order_book": self.ask.order_book,
+                    "balance": self.ask.exchange.balance
                 },
                 "bid": {
                     "price": self.bid.price,
                     "price_with_fee": self.bid.price_with_fee,
                     "base_quantity": self.bid.base_qty,
                     "quote_quantity": self.bid.quote_qty,
-                    "opportunities": self.bid.opportunities,
-                    "bids": self.bid.bids,
+                    "order_book": self.bid.order_book,
+                    "balance": self.bid.exchange.balance
                 },
                 "profit_percentage": self.expected_profit_perc,
                 "profit_amount": self.expected_profit_amount,

@@ -1,4 +1,4 @@
-class MockAPI(object):
+class TestAPI(object):
 
     def __init__(
             self,
@@ -25,7 +25,16 @@ class MockAPI(object):
 
     async def fetch_markets(self, *args, **kwargs):
         base, quote = self.market.split("/")
-        return [{"symbol": self.market, "base": base, "quote": quote}]
+        return [{
+            "symbol": self.market,
+            "base": base,
+            "quote": quote,
+            "min_base_qty": 0.0,
+            "min_quote_qty": 0.0,
+            "base_precision": 8,
+            "quote_precision": 8,
+            "price_precision": 8
+        }]
 
     async def fetch_balance(self, *args, **kwargs):
         return self.balance
