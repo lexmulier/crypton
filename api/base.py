@@ -132,14 +132,11 @@ class BaseAPI(object):
 
     @staticmethod
     def _precision(value):
-        if "1" not in str(value):
-            raise ValueError("We have a precision without a 1 in it")
-
         if float(value) < 1.0:
             precision = value[::-1].find('.')
         elif float(value) >= 1.0:
             value = str(float(value))
-            precision = value.find('.') * -1
+            precision = (value.find('.') * -1) + 1
         else:
             raise ValueError("A precision we can't solve! {}".format(value))
 

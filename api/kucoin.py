@@ -24,8 +24,8 @@ class KuCoinAPI(BaseAPI):
                 "symbol": "{}/{}".format(x["baseCurrency"], x["quoteCurrency"]),
                 "base": x["baseCurrency"],
                 "quote": x["quoteCurrency"],
-                "min_base_qty": x["baseMinSize"],
-                "min_quote_qty": x["quoteMinSize"],
+                "min_base_qty": float(x["baseMinSize"]),
+                "min_quote_qty": float(x["quoteMinSize"]),
                 "base_precision": self._precision(x["baseIncrement"]),
                 "quote_precision": self._precision(x["baseIncrement"]),
                 "price_precision": self._precision(x["priceIncrement"])

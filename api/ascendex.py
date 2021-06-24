@@ -30,10 +30,8 @@ class AscendexAPI(BaseAPI):
                 "symbol": "{}/{}".format(x["baseAsset"], x["quoteAsset"]),
                 "base": x["baseAsset"],
                 "quote": x["quoteAsset"],
-                "min_base_qty": 0.0,
-                "min_quote_qty": x["minNotional"],
-                "base_precision": self._precision(x["baseIncrement"]),
-                "quote_precision": self._precision(x["baseIncrement"]),
+                "min_quote_qty": float(x["minNotional"]),
+                "base_precision": self._precision(x["lotSize"]),
                 "price_precision": self._precision(x["tickSize"])
             }
             for x in response["data"]

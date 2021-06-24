@@ -10,8 +10,6 @@ market = "MITX/USDT"
 exchange_ids = ["ascendex", "kucoin"]
 min_profit_perc = None
 min_profit_amount = None
-min_base_qty = 10.0
-min_quote_qty = 5.0
 
 exchanges = initiate_exchanges(exchange_ids, preload_market=market, verbose=verbose)
 refresh_exchange_balances(0, exchanges)
@@ -20,8 +18,6 @@ self = CryptonTrade(
     exchanges=exchanges,
     min_profit_perc=min_profit_perc,
     min_profit_amount=min_profit_amount,
-    min_base_qty=min_base_qty,
-    min_quote_qty=min_quote_qty,
     verbose=verbose
 )
 

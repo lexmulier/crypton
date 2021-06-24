@@ -275,7 +275,7 @@ class CryptonTrade(object):
 
         return response[0] and response[1]
 
-    def save_to_database(self, force=True):
+    def save_to_database(self, force=False):
         if not force and not self.debug_mode:
             return
 
@@ -288,6 +288,7 @@ class CryptonTrade(object):
             "market": self.market,
             "order_quantity": self.bid_base_order_qty,
             "market_pair_id": self.market_pair_id,
+            "debug_mode": self.debug_mode,
             "expected": {
                 "ask": {
                     "price": self.ask.price,
