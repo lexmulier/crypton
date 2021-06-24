@@ -1,6 +1,7 @@
 class OrderBase(object):
     _type = None
     _taker_or_maker = None
+    _precision = 8
 
     STATUS_NONE = "NONE"
     STATUS_ACTIVE = "ACTIVE"
@@ -16,12 +17,12 @@ class OrderBase(object):
         self.exchange = exchange
         self.exchange_id = exchange.exchange_id
 
-        self.opportunities = []
+        self.opportunity_found = False
 
         self.best_price = 0.0
         self.best_price_with_fee = 0.0
-        self.best_quantity = 0.0
-        self.best_offer = 0.0
+        self.best_base_qty = 0.0
+        self.best_quote_qty = 0.0
 
         self.actual_price = 0.0
         self.actual_price_with_fee = 0.0
@@ -32,15 +33,15 @@ class OrderBase(object):
         self.status = self.STATUS_NONE
 
     def _generate_output(self):
-        if self.opportunities:
+        if self.opportunity_found:
             return "{}({}, {}, offer={}, best_price={}, best_price_with_fee={}, max_qty={})".format(
                 self._type,
                 self.exchange_id,
                 self.symbol,
-                self.best_offer,
+                self.best_quote_qty,
                 self.best_price,
                 self.best_price_with_fee,
-                self.best_quantity,
+                self.best_base_qty,
             )
         return "{}({}, {}, first_price={}, first_price_with_fee={}, max_qty={})".format(
             self._type,
@@ -60,7 +61,7 @@ class OrderBase(object):
     def _get_comparing_prices(self, other_exchange):
         if self.status == self.STATUS_FILLED and other_exchange.status == other_exchange.STATUS_FILLED:
             return self.actual_price_with_fee, other_exchange.actual_price_with_fee
-        elif self.opportunities and other_exchange.opportunities:
+        elif self.opportunity_found and other_exchange.opportunity_found:
             return self.best_price_with_fee, other_exchange.best_price_with_fee
         else:
             return self.first_price_with_fee, other_exchange.first_price_with_fee
@@ -85,16 +86,8 @@ class OrderBase(object):
     def first_price_with_fee(self):
         return self._calculate_price_with_fee(self.first_price)
 
-    def _calculate_price_with_fee(self, price):
-        return (1.0 + self.exchange_market.trading_fees[self._taker_or_maker]) * price
-
-    def set_opportunity(self, opportunities):
-        self.opportunities = sorted(opportunities, key=lambda x: x[-1], reverse=True)
-        if opportunities:
-            self.best_price = self.opportunities[0][0]
-            self.best_price_with_fee = self.opportunities[0][1]
-            self.best_quantity = self.opportunities[0][2]
-            self.best_offer = self.opportunities[0][3]
+    def _calculate_price_with_fee(self, *args):
+        raise NotImplementedError()
 
     async def sell(self, _id, qty, price):
         return await self._create_order(_id, "sell", qty, price)
@@ -126,7 +119,7 @@ class OrderBase(object):
             result = await self.exchange.client.fetch_order_status(self.exchange_order_id)
 
             self.actual_price = result["price"]
-            self.actual_price_with_fee = result["price"] + (result["fee"] / (result["price"] * result["quantity"]))
+            self.actual_price_with_fee = result["fee"] / result["quantity"]
             self.actual_quantity = result["quantity"]
             self.timestamp = result["timestamp"]
 
@@ -157,43 +150,47 @@ class BestOrderBid(OrderBase):
     def first_quantity(self):
         return self.bids[0][1]
 
-    def opportunity(self, lowest_ask_price_with_fee, balance_qty, min_base_qty, min_quote_qty):
-        opportunities = []
+    def _calculate_price_with_fee(self, price, fee=None):
+        fee = fee if fee is not None else self.exchange_market.trading_fees[self._taker_or_maker]
+        return round((1.0 - fee) * price, self._precision)
+
+    def opportunity(self, lowest_ask_price_with_fee, base_balance_qty_left):
+        self.best_base_qty = 0.0
+        self.best_quote_qty = 0.0
         # Loop all bids in the response from the exchange
         for bid_row in self.bids:
             bid_price = bid_row[0]
-            bid_qty = bid_row[1]
-
-            # Maximum quantity is either set by the quantity of the offer, or what we have in our balance
-            max_possible_qty = min(bid_qty, balance_qty)
-
-            # If the maximum possible quantity is lower than what we allow, continue
-            if min_base_qty > max_possible_qty:
-                continue
+            bid_base_qty = bid_row[1]
 
             # Calculate the bid price including the fee
             bid_price_with_fee = self._calculate_price_with_fee(bid_price)
 
             # Check if the offer price plus fee is better than the highest asking price with fee
             if bid_price_with_fee <= lowest_ask_price_with_fee:
-                continue
+                break
 
-            # Calculate our arbitrage opportunity
-            opportunity = bid_price_with_fee * max_possible_qty
+            # Calculate quote currency quantity
+            trade_quote_qty = bid_price_with_fee * bid_base_qty
 
-            # Check if the opportunity is better than the minimal notonial quantity
-            if min_quote_qty > opportunity:
-                continue
+            if bid_base_qty > base_balance_qty_left:
+                trade_quote_qty = trade_quote_qty * (base_balance_qty_left / bid_base_qty)
+                trade_base_qty = base_balance_qty_left
+            else:
+                trade_base_qty = bid_base_qty
 
-            # Calculate the opportunity for this particular offer
-            opportunities.append([
-                bid_price,
-                bid_price_with_fee,
-                max_possible_qty,
-                opportunity
-            ])
+            # Set the price to this price
+            self.best_price = bid_price
+            self.best_price_with_fee = bid_price_with_fee
+            self.best_base_qty += trade_base_qty
+            self.best_quote_qty += trade_quote_qty
+            self.opportunity_found = True
 
-        self.set_opportunity(opportunities)
+            # Reduce the balance left by the amount of the current trade
+            base_balance_qty_left -= bid_base_qty
+
+            # If we used all the balance we have we stop the search
+            if base_balance_qty_left <= 0.0:
+                break
 
 
 class BestOrderAsk(OrderBase):
@@ -219,40 +216,44 @@ class BestOrderAsk(OrderBase):
     def first_quantity(self):
         return self.asks[0][1]
 
-    def opportunity(self, highest_bid_price_with_fee, balance_qty, min_qty, min_quote_qty):
-        opportunities = []
+    def _calculate_price_with_fee(self, price, fee=None):
+        fee = fee if fee is not None else self.exchange_market.trading_fees[self._taker_or_maker]
+        return round((1.0 + fee) * price, self._precision)
+
+    def opportunity(self, highest_bid_price_with_fee, quote_balance_qty_left):
+        self.best_base_qty = 0.0
+        self.best_quote_qty = 0.0
         # Loop all bids in the response from the exchange
         for ask_row in self.asks:
             ask_price = ask_row[0]
-            ask_qty = ask_row[1]
-
-            # Maximum quantity is either set by the quantity of the offer, or what we have in our balance
-            max_possible_qty = min(ask_qty, balance_qty)
-
-            # If the maximum possible quantity is lower than what we allow, continue
-            if min_qty > max_possible_qty:
-                continue
+            ask_base_qty = ask_row[1]
 
             # Calculate the ask price including the fee
             ask_price_with_fee = self._calculate_price_with_fee(ask_price)
 
             # Check if the offer price plus fee is better than the highest bid price with fee
             if ask_price_with_fee >= highest_bid_price_with_fee:
-                continue
+                break
 
-            # Calculate our arbitrage opportunity
-            opportunity = ask_price_with_fee * max_possible_qty
+            # Calculate quote currency quantity
+            trade_quote_qty = round(ask_price_with_fee * ask_base_qty, self._precision)
 
-            # Check if the opportunity is better than the minimal notonial quantity
-            if min_quote_qty > opportunity:
-                continue
+            if trade_quote_qty > quote_balance_qty_left:
+                # We need to calculate the base quantity based on the quote quantity portion of the trade
+                ask_base_qty = ask_base_qty * (quote_balance_qty_left / trade_quote_qty)
+                # Set the trade quote quantity to whatever is left
+                trade_quote_qty = quote_balance_qty_left
 
-            # Calculate the opportunity for this particular offer
-            opportunities.append([
-                ask_price,
-                ask_price_with_fee,
-                max_possible_qty,
-                opportunity
-            ])
+            # Set the price to this price
+            self.best_price = ask_price
+            self.best_price_with_fee = ask_price_with_fee
+            self.best_base_qty += ask_base_qty
+            self.best_quote_qty += trade_quote_qty
+            self.opportunity_found = True
 
-        self.set_opportunity(opportunities)
+            # Reduce the balance left by the amount of the current trade
+            quote_balance_qty_left -= trade_quote_qty
+
+            # If we used all the balance we have we stop the search
+            if quote_balance_qty_left <= 0.0:
+                break

@@ -44,10 +44,11 @@ class CryptonTrade(object):
         self.successful = None
         self.best_ask = None
         self.best_bid = None
-        self.order_qty = 0.0
 
-        self.ask_exchange_qty = 0.0
-        self.bid_exchange_qty = 0.0
+        self.bid_base_exchange_qty = 0.0
+        self.ask_quote_exchange_qty = 0.0
+        self.base_order_qty = 0.0
+        self.quote_order_qty = 0.0
 
         self.expected_profit_perc = None
         self.expected_profit_amount = None
@@ -110,68 +111,38 @@ class CryptonTrade(object):
         return success, best_exchange_asks, best_exchange_bids
 
     def get_best_opportunity(self):
-        # Order quantity from exchanges
-        exchange_order_qty = min(self.ask_exchange_qty, self.bid_exchange_qty)
-
         # Filter the opportunities based on arbitrage and qty in exchanges
-        self.best_ask.opportunity(
-            self.best_bid.first_price_with_fee,
-            exchange_order_qty,
-            self.min_base_qty,
-            self.min_quote_qty
-        )
-        self.best_bid.opportunity(
-            self.best_ask.first_price_with_fee,
-            exchange_order_qty,
-            self.min_base_qty,
-            self.min_quote_qty
-        )
+        self.best_ask.opportunity(self.best_bid.first_price_with_fee, self.ask_quote_exchange_qty)
+        self.best_bid.opportunity(self.best_ask.first_price_with_fee, self.bid_base_exchange_qty)
 
-        # Which quantity is dictating how much we're buying? Best off on ask, bid or balance on exchanges?
-        self.order_qty = min(self.best_ask.best_quantity, self.best_bid.best_quantity)
-
-        # If these are equal then quantity is from the exchanges and we don't need recalculation
-        if self.order_qty == exchange_order_qty:
-            self.notify("Taking order quantity from exchange balance")
-
-        # If best ask quantity is above best bid quantity then we find new best opportunity for best ask
-        elif self.best_ask.best_quantity >= self.best_bid.best_quantity:
+        # Which quantity is dictating how much we're buying?
+        if self.best_ask.best_base_qty > self.best_bid.best_base_qty:
             self.notify("Taking order quantity from best bid quantity")
-            self.best_ask.opportunity(
-                self.best_bid.first_price_with_fee,
-                self.best_bid.best_quantity,
-                self.min_base_qty,
-                self.min_quote_qty
-            )
+            self.best_ask.opportunity(self.best_bid.first_price_with_fee, self.best_bid.best_quote_qty)
 
-        # If best bid quantity is above best ask quantity then we find new best opportunity for best bid
-        elif self.best_bid.best_quantity >= self.best_ask.best_quantity:
+        elif self.best_bid.best_base_qty > self.best_ask.best_base_qty:
             self.notify("Taking order quantity from best ask quantity")
-            self.best_bid.opportunity(
-                self.best_ask.first_price_with_fee,
-                self.best_ask.best_quantity,
-                self.min_base_qty,
-                self.min_quote_qty
-            )
+            self.best_bid.opportunity(self.best_ask.first_price_with_fee, self.best_ask.best_base_qty)
+
+        # assert self.best_ask.best_base_qty == self.best_bid.best_base_qty
+        # TODO: There is a difference in quantity because of different prices
+
+        self.base_order_qty = self.best_bid.best_base_qty
+        self.quote_order_qty = self.best_ask.best_quote_qty
 
     def get_exchange_balances(self):
         msg = "Not enough {} on {}. Current balance: {}"
 
         # How much volume can I buy with my payment currency
-        quote_currency_balance = self.best_ask.exchange.get_balance(symbol=self.quote_coin)
-        if self.min_quote_qty > quote_currency_balance:
-            self.notify(msg.format(self.quote_coin, self.best_ask.exchange_id, quote_currency_balance))
-            return False
-
-        self.ask_exchange_qty = quote_currency_balance / self.best_ask.first_price_with_fee
-        if self.min_base_qty > self.ask_exchange_qty:
-            self.notify(msg.format(self.base_coin, self.best_ask.exchange_id, self.ask_exchange_qty))
+        self.ask_quote_exchange_qty = self.best_ask.exchange.get_balance(symbol=self.quote_coin)
+        if self.min_quote_qty > self.ask_quote_exchange_qty:
+            self.notify(msg.format(self.quote_coin, self.best_ask.exchange_id, self.ask_quote_exchange_qty))
             return False
 
         # How much volume can I sell due to how much I have in balance
-        self.bid_exchange_qty = self.best_bid.exchange.get_balance(symbol=self.base_coin)
-        if self.min_base_qty > self.bid_exchange_qty or self.bid_exchange_qty == 0.0:
-            self.notify(msg.format(self.base_coin, self.best_bid.exchange_id, self.bid_exchange_qty))
+        self.bid_base_exchange_qty = self.best_bid.exchange.get_balance(symbol=self.base_coin)
+        if self.min_base_qty > self.bid_base_exchange_qty or self.bid_base_exchange_qty == 0.0:
+            self.notify(msg.format(self.base_coin, self.best_bid.exchange_id, self.bid_base_exchange_qty))
             return False
 
         return True
@@ -186,7 +157,7 @@ class CryptonTrade(object):
         profit_perc = ((bid_price - ask_price) / ask_price) * 100.0
         adequate_margin_perc = profit_perc >= self.min_profit_perc
 
-        profit_amount = self.best_bid.best_offer - self.best_ask.best_offer
+        profit_amount = self.best_bid.best_quote_qty - self.best_ask.best_quote_qty
         adequate_margin_amount = profit_amount >= self.min_profit_amount
 
         if not adequate_margin_amount and not adequate_margin_perc:
@@ -211,18 +182,25 @@ class CryptonTrade(object):
             return False
 
         # We want to order at least a certain amount to avoid small trading
-        if self.order_qty <= self.min_base_qty:
-            msg = "Skipping: Order quantity {} is below minimal quantity ({})"
-            self.notify(msg.format(self.order_qty, self.min_base_qty))
+        if self.base_order_qty <= self.min_base_qty:
+            msg = "Skipping: {} Order quantity {} is below minimal quantity ({})"
+            self.notify(msg.format(self.base_coin, self.base_order_qty, self.min_base_qty))
+            return False
+
+        # We want to order at least a certain amount to avoid small trading
+        if self.quote_order_qty <= self.min_quote_qty:
+            msg = "Skipping: {} Order quantity {} is below minimal quantity ({})"
+            self.notify(msg.format(self.quote_coin, self.quote_order_qty, self.min_quote_qty))
             return False
 
         # Check if there is arbitrage because the ask price is higher than the bid price
         if self.best_ask > self.best_bid:
+            #TODO: Probably not needed.
             self.notify("Skipping: Asking price is higher than bid price")
             return False
 
         # If these lists are empty then there is no arbitrage
-        if not self.best_ask.opportunities or not self.best_bid.opportunities:
+        if not self.best_ask.opportunity_found or not self.best_bid.opportunity_found:
             self.notify("Skipping: No good arbitrage opportunities found".format(self.min_base_qty))
             return False
 
@@ -244,12 +222,12 @@ class CryptonTrade(object):
         return True
 
     def initiate_orders(self):
-        msg = "{} @ {}: quantity={} | price={} {}"
+        msg = "{} @ {}: quantity={} | price_with_fee={} {}"
         self.notify(msg.format(
-            "BUYING ", self.best_ask.exchange_id, self.order_qty, self.best_ask.best_price, self.quote_coin
+            "BUYING ", self.best_ask.exchange_id, self.order_qty, self.best_ask.best_price_with_fee, self.quote_coin
         ))
         self.notify(msg.format(
-            "SELLING", self.best_bid.exchange_id, self.order_qty, self.best_bid.best_price, self.quote_coin
+            "SELLING", self.best_bid.exchange_id, self.order_qty, self.best_bid.best_price_with_fee, self.quote_coin
         ))
 
         loop = asyncio.get_event_loop()
