@@ -125,10 +125,6 @@ class KuCoinAPI(BaseAPI):
             hmac.new(self._secret, self._password, hashlib.sha256).digest()
         ).decode()
 
-    @staticmethod
-    def _get_params_for_sig(data):
-        return '&'.join(["{}={}".format(key, data[key]) for key in data])
-
     def _generate_signature(self, nonce, method, endpoint, data=None, compact_data=None):
         data_json = ""
         if method == "GET" and data:

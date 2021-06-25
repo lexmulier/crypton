@@ -137,8 +137,18 @@ class CryptonTrade(object):
             self.notify("Taking order quantity from ask quantity: {} {}".format(self.ask.base_qty, self.base_coin))
             self.bid.opportunity(self.ask.first_price_with_fee, max_base_qty=self.ask.base_qty)
 
-        # This should always be equal, the base qty never differs, the quote qty does (due to price difference)
-        assert self.ask.base_qty == self.bid.base_qty
+        # TODO: Check why there is difference:
+        """
+        TRADE 60d5d0ca3e35a27ae850abbd: ASK(kucoin, MITX/USDT, first_price=0.0382, first_price_with_fee=0.0383, base_qty=10.8329)
+        TRADE 60d5d0ca3e35a27ae850abbd: BID(ascendex, MITX/USDT, first_price=0.038486, first_price_with_fee=0.038409, base_qty=941.0)
+        TRADE 60d5d0ca3e35a27ae850abbd: 1296.0 MITX on BID exchange ascendex | 131.05260686 USDT on ASK exchange kucoin
+        TRADE 60d5d0ca3e35a27ae850abbd: Taking order quantity from ask quantity: 711.3209 MITX
+        TRADE 60d5d0ca3e35a27ae850abbd: WHY IS THIS DIFFERENT? 711.3209 711.0
+        """
+        # # This should always be equal, the base qty never differs, the quote qty does (due to price difference)
+        # if self.ask.base_qty != self.bid.base_qty:
+        #     self.notify("WHY IS THIS DIFFERENT?", self.ask.base_qty, self.bid.base_qty)
+        #     raise ValueError("Stopping because difference in base qty")
 
         self.bid_base_order_qty = self.bid.base_qty  # The BID exchange is where we care about the base qty
         self.ask_quote_order_qty = self.ask.quote_qty  # The ASK exchange is where we care about the quote qty

@@ -133,6 +133,7 @@ class BaseAPI(object):
     @staticmethod
     def _precision(value):
         if float(value) < 1.0:
+            #value = value.rstrip("0")
             precision = value[::-1].find('.')
         elif float(value) >= 1.0:
             value = str(float(value))
@@ -142,6 +143,9 @@ class BaseAPI(object):
 
         return precision
 
+    @staticmethod
+    def _get_params_for_sig(data):
+        return '&'.join(["{}={}".format(key, data[key]) for key in data])
 
 
 

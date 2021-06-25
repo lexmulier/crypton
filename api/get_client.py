@@ -3,13 +3,14 @@ from api.ccxt import CcxtAPI
 from api.dextrade import DexTradeAPI
 from api.indoex import IndoExAPI
 from api.kucoin import KuCoinAPI
+from api.latoken import LATokenAPI
 
 API_CLASS_MAPPING = {
     "ascendex": AscendexAPI,
     "binance": CcxtAPI,
     "liquid": CcxtAPI,
     "timex": CcxtAPI,
-    "latoken": CcxtAPI,
+    "latoken": LATokenAPI,
     "kucoin": KuCoinAPI,
     "kraken": CcxtAPI,
     "binance": CcxtAPI,
