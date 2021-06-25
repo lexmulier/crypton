@@ -132,7 +132,7 @@ class OrderBase(object):
                 result["price"], self.exchange_market.price_precision
             )
             self.actual_price_with_fee = round(
-                result["fee"] / result["quantity"], self.exchange_market.price_precision
+                result["fee"] / result["base_quantity"], self.exchange_market.price_precision
             )
             self.actual_base_qty = round(
                 result["base_quantity"], self.exchange_market.base_precision

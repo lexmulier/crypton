@@ -17,7 +17,7 @@ class CryptonTrade(object):
             self,
             market,
             exchanges,
-            min_profit_perc=None,
+            min_profit_perc=None,  # TODO: What about two sided profit to increase amount trades
             min_profit_amount=None,
             min_base_qty=None,
             min_quote_qty=None,
