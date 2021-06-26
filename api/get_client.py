@@ -14,7 +14,6 @@ API_CLASS_MAPPING = {
     "latoken": LATokenAPI,
     "kucoin": KuCoinAPI,
     "kraken": CcxtAPI,
-    "binance": CcxtAPI,
     "dextrade": DexTradeAPI,
     "indoex": IndoExAPI,
 }

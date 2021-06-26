@@ -103,7 +103,7 @@ class KuCoinAPI(BaseAPI):
 
         return True
 
-    async def fetch_order_status(self, order_id):
+    async def fetch_order_status(self, order_id, **kwargs):
         endpoint = "/api/v1/order/client-order/{}".format(str(order_id))
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)

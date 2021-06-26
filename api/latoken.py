@@ -90,8 +90,7 @@ class LATokenAPI(BaseAPI):
             "side": side.upper(),
             "baseCurrency": self._coin_to_id_mapping[base],
             "quoteCurrency": self._coin_to_id_mapping[quote],
-            #"condition": "IMMEDIATE_OR_CANCEL",
-            "condition": "GOOD_TILL_CANCELLED",
+            "condition": "IMMEDIATE_OR_CANCEL",
             "type": "LIMIT",
             "quantity": str(qty),
             "price": str(price),
@@ -126,7 +125,7 @@ class LATokenAPI(BaseAPI):
 
         return True
 
-    async def fetch_order_status(self, order_id):
+    async def fetch_order_status(self, order_id, **kwargs):
         endpoint = "/v2/auth/order/getOrder/{}".format(order_id)
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)

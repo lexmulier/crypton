@@ -123,7 +123,7 @@ class OrderBase(object):
 
     async def get_status(self):
         async with self.exchange.session_manager:
-            result = await self.exchange.client.fetch_order_status(self.exchange_order_id)
+            result = await self.exchange.client.fetch_order_status(self.exchange_order_id, symbol=self.symbol)
 
             if not result:
                 return

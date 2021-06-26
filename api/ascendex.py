@@ -67,7 +67,7 @@ class AscendexAPI(BaseAPI):
         response = await self.get(url, headers=headers)
         self._uuid = response["data"]["userUID"]
 
-    async def fetch_order_status(self, order_id):
+    async def fetch_order_status(self, order_id, **kwargs):
         headers = self._get_headers("order/status", self._nonce())
         url = self._private_base_url + "/api/pro/v1/cash/order/status?orderId={}".format(str(order_id))
         response = await self.get(url, headers=headers)
