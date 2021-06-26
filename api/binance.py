@@ -5,11 +5,11 @@ import hmac
 from api.base import BaseAPI
 
 
-class LATokenAPI(BaseAPI):
+class BinanceAPI(BaseAPI):
     _base_url = "https://api.latoken.com"
 
     def __init__(self, *args, **kwargs):
-        super(LATokenAPI, self).__init__(*args, **kwargs)
+        super(BinanceAPI, self).__init__(*args, **kwargs)
         self._api_key = self.config["apiKey"]
         self._secret = self.config["secret"].encode()
         self._id_to_coin_mapping = {}
@@ -70,14 +70,13 @@ class LATokenAPI(BaseAPI):
             "maker": float(response["makerFee"])
         }
 
-    async def fetch_order_book(self, symbol, **kwargs):
-        base, quote = symbol.split("/")
-        endpoint = "/v2/book/{}/{}".format(self._coin_to_id_mapping[base], self._coin_to_id_mapping[quote])
-        url = self._base_url + endpoint
+    async def fetch_order_book(self, symbol, limit=None):
+        url = self._base_url + "/api/v1/market/orderbook/level2_{}?symbol={}".format(
+            limit or 20, symbol.replace("/", "-")
+        )
         response = await self.get(url)
-
-        asks = [[float(x["price"]), float(x["quantity"])] for x in response["ask"]]
-        bids = [[float(x["price"]), float(x["quantity"])] for x in response["bid"]]
+        asks = [[float(x[0]), float(x[1])] for x in response["data"]["asks"]]
+        bids = [[float(x[0]), float(x[1])] for x in response["data"]["bids"]]
         return asks, bids
 
     async def create_order(self, _id, symbol, qty, price, side):

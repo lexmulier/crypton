@@ -1,11 +1,16 @@
 import asyncio
 import datetime
+import argparse
+import json
+import os
 
 from bson import ObjectId
 
 from exchanges import initiate_exchanges
 from models import db
 from utils import sleep_now
+
+WORKERS_DIR = "workers"
 
 
 class CryptonTrade(object):
@@ -30,8 +35,8 @@ class CryptonTrade(object):
 
         self.exchanges = exchanges
 
-        self.min_profit_perc = min_profit_perc if min_profit_perc is not None else self._min_profit_perc
-        self.min_profit_amount = min_profit_amount if min_profit_amount is not None else self._min_profit_amount
+        self.min_profit_perc = min_profit_perc
+        self.min_profit_amount = min_profit_amount
         self.min_base_qty = min_base_qty
         self.min_quote_qty = min_quote_qty
 
@@ -182,8 +187,18 @@ class CryptonTrade(object):
         profit_amount = self.bid.quote_qty - self.ask.quote_qty
         profit_perc = (profit_amount / self.bid.quote_qty) * 100.0
 
-        adequate_margin_perc = profit_perc >= self.min_profit_perc
-        adequate_margin_amount = profit_amount >= self.min_profit_amount
+        if self.min_profit_perc:
+            min_profit_perc = self.min_profit_perc[self.bid.exchange_id]
+        else:
+            min_profit_perc = self._min_profit_perc
+
+        if self.min_profit_amount:
+            min_profit_amount = self.min_profit_amount[self.bid.exchange_id]
+        else:
+            min_profit_amount = self._min_profit_amount
+
+        adequate_margin_perc = profit_perc >= min_profit_perc
+        adequate_margin_amount = profit_amount >= min_profit_amount
 
         if not adequate_margin_amount and not adequate_margin_perc:
             msg = "Profit percentage {}% below min profit {}%"
@@ -397,18 +412,16 @@ def upsert_market_pair(market, exchange_ids):
     return market_pair_id
 
 
-def activate_crypton(
-        market,
-        exchange_ids,
-        min_profit_perc=None,
-        min_profit_amount=None,
-        min_base_qty=0.0,
-        min_quote_qty=0.0,
-        sleep_time=0.1,
-        verbose=False
-):
-    market_pair_id = upsert_market_pair(market, exchange_ids)
-    exchanges = initiate_exchanges(exchange_ids, preload_market=market, verbose=verbose)
+def activate_crypton(settings):
+    market_pair_id = upsert_market_pair(
+        settings["market"],
+        settings["exchanges"]
+    )
+
+    exchanges = initiate_exchanges(
+        settings["exchanges"],
+        preload_market=settings.get("market"),
+        verbose=settings.get("verbose", True))
 
     counter = 0
     while True:
@@ -417,19 +430,20 @@ def activate_crypton(
         refresh_exchange_balances(counter, exchanges)
 
         # Sleep to avoid a API overload
-        if sleep_time is not None:
-            sleep_now(seconds=sleep_time)
+        if settings.get("sleep_time") is not None:
+            sleep_now(seconds=settings["sleep_time"])
 
         # Check and execute trade if there is an opportunity
         trade = CryptonTrade(
-            market=market,
+            market=settings["market"],
             exchanges=exchanges,
-            min_profit_perc=min_profit_perc,
-            min_profit_amount=min_profit_amount,
-            min_base_qty=min_base_qty,
-            min_quote_qty=min_quote_qty,
             market_pair_id=market_pair_id,
-            verbose=verbose
+            min_profit_perc=settings.get("min_profit_perc"),
+            min_profit_amount=settings.get("min_profit_amount"),
+            min_base_qty=settings.get("min_base_qty"),
+            min_quote_qty=settings.get("min_quote_qty"),
+            debug_mode=settings.get("debug_mode", False),
+            verbose=settings.get("verbose", True),
         )
         trade.start()
 
@@ -441,9 +455,25 @@ def activate_crypton(
         counter += 1
 
 
+def load_settings_file(worker):
+    filename = worker if worker[-4:] == "json" else worker + ".json"
+    filename = os.path.join(WORKERS_DIR, filename)
+
+    if filename is None or not os.path.exists(filename):
+        raise ImportError("No settings file is provided or file does not exist!")
+
+    config_file = open(filename).read()
+    settings = json.loads(config_file)
+
+    return settings
+
+
 if __name__ == "__main__":
-    market = "MITX/USDT"
-    exchange_ids = ["ascendex", "kucoin"]
-    activate_crypton(market, exchange_ids, min_quote_qty=5.0, min_base_qty=10.0, verbose=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-w", "--worker", type=str, help="Specify the configuration file of the worker")
+    args = parser.parse_args()
+
+    settings = load_settings_file(args.worker)
+    activate_crypton(settings)
 
 
