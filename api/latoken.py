@@ -1,4 +1,4 @@
-import base64
+import datetime
 import hashlib
 import hmac
 
@@ -43,9 +43,9 @@ class LATokenAPI(BaseAPI):
                 "quote": quote,
                 "min_base_qty": float(market["minOrderQuantity"]),
                 "min_quote_qty": float(market["minOrderCostUsd"]),
-                "base_precision": float(market["quantityTick"]),
-                "quote_precision": float(market["costDisplayDecimals"]),
-                "price_precision": float(market["priceDecimals"])
+                "base_precision": int(market["quantityDecimals"]),
+                "quote_precision": int(market["costDisplayDecimals"]),
+                "price_precision": int(market["priceDecimals"])
             })
         return markets
 
@@ -90,7 +90,8 @@ class LATokenAPI(BaseAPI):
             "side": side.upper(),
             "baseCurrency": self._coin_to_id_mapping[base],
             "quoteCurrency": self._coin_to_id_mapping[quote],
-            "condition": "IMMEDIATE_OR_CANCEL",
+            #"condition": "IMMEDIATE_OR_CANCEL",
+            "condition": "GOOD_TILL_CANCELLED",
             "type": "LIMIT",
             "quantity": str(qty),
             "price": str(price),
@@ -102,47 +103,49 @@ class LATokenAPI(BaseAPI):
         compact_data = self._compact_json_dict(data)
         response = await self.post(url, data=compact_data, headers=headers)
 
-        print(response)
+        if response.get("status") != "SUCCESS":
+            self.notify("Error on {} order: {}".format(side, response))
+            return False, response
 
-        # if response.get("code") != "200000":
-        #     self.notify("Error on {} order: {}".format(side, response.get("msg", "Error message N/A")))
-        #     return False, response
+        exchange_order_id = response["id"]
+        self.notify("Exchange order ID", exchange_order_id)
 
-        self.notify("Exchange order ID", _id)
+        return True, exchange_order_id
 
-        return True, _id
-    #
-    # async def cancel_order(self, order_id, *args, **kwargs):
-    #     endpoint = "/api/v1/order/client-order/{}".format(str(order_id))
-    #     url = self._base_url + endpoint
-    #     headers = self._get_headers(endpoint, method="DELETE")
-    #     response = await self.delete(url, headers=headers)
-    #
-    #     if response.get("code") != "200000":
-    #         self.notify("Error on cancel order: {}".format(response.get("msg", "Error message N/A")))
-    #         return False
-    #
-    #     return True
-    #
-    # async def fetch_order_status(self, order_id):
-    #     endpoint = "/api/v1/order/client-order/{}".format(str(order_id))
-    #     url = self._base_url + endpoint
-    #     headers = self._get_headers(endpoint)
-    #     response = await self.get(url, headers=headers)
-    #
-    #     data = {
-    #         "price": float(response["data"]["price"]),
-    #         "base_quantity": float(response["data"]["size"]),
-    #         "fee": float(response["data"]["fee"]),
-    #         "timestamp": datetime.datetime.fromtimestamp(response["data"]["createdAt"] / 1000.0),
-    #         "filled": not response["data"]["isActive"] and not response["data"]["cancelExist"]
-    #     }
-    #
-    #     return data
-    #
+    async def cancel_order(self, order_id, *args, **kwargs):
+        endpoint = "/v2/auth/order/cancel"
+        url = self._base_url + endpoint
+        data = {"id": order_id}
+        headers = self._get_headers(endpoint, method="POST", data=data)
+        compact_data = self._compact_json_dict(data)
+        response = await self.post(url, data=compact_data, headers=headers)
+
+        if response.get("status") != "SUCCESS":
+            self.notify("Error on cancel order: {}".format(response))
+            return False
+
+        return True
+
+    async def fetch_order_status(self, order_id):
+        endpoint = "/v2/auth/order/getOrder/{}".format(order_id)
+        url = self._base_url + endpoint
+        headers = self._get_headers(endpoint)
+        response = await self.get(url, headers=headers)
+
+        filled = response["status"] == "FILLED"
+        fee = float(response["filled"]) - float(response["cost"]) if filled else 0.0
+        data = {
+            "price": float(response["price"]),
+            "base_quantity": float(response["quantity"]),
+            "fee": fee,
+            "timestamp": datetime.datetime.fromtimestamp(response["timestamp"] / 1000.0),
+            "filled": filled
+        }
+
+        return data
 
     def _get_headers(self, endpoint, method="GET", data=None):
-        data_str = "?" + self._get_params_for_sig(data) if data else ""
+        data_str = self._get_params_for_sig(data) if data else ""
 
         sig = hmac.new(self._secret, (method + endpoint + data_str).encode("ascii"), hashlib.sha512).hexdigest()
 
