@@ -108,9 +108,9 @@ class CryptonTrade(object):
 
         # Now ask and bid are known, set the minimal quantity from the exchange if not forced by user
         if self.min_base_qty is None:
-            self.min_base_qty = self.bid.exchange.markets[self.market].min_base_qty
+            self.min_base_qty = self.ask.exchange.markets[self.market].min_base_qty
         if self.min_quote_qty is None:
-            self.min_quote_qty = self.ask.exchange.markets[self.market].min_quote_qty
+            self.min_quote_qty = self.bid.exchange.markets[self.market].min_quote_qty
 
     def fetch_orders(self):
         loop = asyncio.get_event_loop()

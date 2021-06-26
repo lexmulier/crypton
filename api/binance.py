@@ -129,6 +129,10 @@ class BinanceAPI(BaseAPI):
         url = self._get_request_url(endpoint, data=data)
         response = await self.get(url, headers=self._headers)
 
+        if response.get("code"):
+            self.notify("Error status retrieve: {}".format(response))
+            return
+
         filled = response["status"] == "FILLED"
         data = {
             "price": float(response["price"]),
