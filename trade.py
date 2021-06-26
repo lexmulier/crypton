@@ -10,14 +10,14 @@ from utils import sleep_now
 
 class CryptonTrade(object):
 
-    _min_profit_perc = 0.5
-    _min_profit_amount = 0.2
+    _min_profit_perc = 0.01
+    _min_profit_amount = 0.01
 
     def __init__(
             self,
             market,
             exchanges,
-            min_profit_perc=None,  # TODO: What about two sided profit to increase amount trades
+            min_profit_perc=None,
             min_profit_amount=None,
             min_base_qty=None,
             min_quote_qty=None,
