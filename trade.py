@@ -22,12 +22,10 @@ class CryptonTrade(object):
             self,
             market,
             exchanges,
-            min_profit_perc=None,
-            min_profit_amount=None,
             min_base_qty=None,
             min_quote_qty=None,
             market_pair_id=None,
-            debug_mode=False,
+            simulate=False,
             verbose=True
     ):
         self.market = market
@@ -35,14 +33,12 @@ class CryptonTrade(object):
 
         self.exchanges = exchanges
 
-        self.min_profit_perc = min_profit_perc
-        self.min_profit_amount = min_profit_amount
         self.min_base_qty = min_base_qty
         self.min_quote_qty = min_quote_qty
 
         self.market_pair_id = market_pair_id or "_".join([*sorted(exchanges), market]).upper()
 
-        self.debug_mode = debug_mode
+        self.simulate = simulate
         self.verbose = verbose
 
         self.trade_id = ObjectId()
@@ -66,7 +62,7 @@ class CryptonTrade(object):
         if self.verbose:
             print("TRADE {}:".format(self.trade_id if self.trade_id else ""), *args)
 
-    def start(self, simulate=False):
+    def start(self):
         self.notify('#' * 30)
 
         # Fetch orders from the exchanges
@@ -86,7 +82,7 @@ class CryptonTrade(object):
         self.get_best_opportunity()
 
         # Check if there is arbitrage and adequate profit
-        if not self.verify_arbitrage_and_profit() or simulate:
+        if not self.verify_arbitrage_and_profit():
             self.save_to_database()
             return
 
@@ -193,26 +189,22 @@ class CryptonTrade(object):
         profit_amount = self.bid.quote_qty - self.ask.quote_qty
         profit_perc = (profit_amount / self.bid.quote_qty) * 100.0
 
-        if self.min_profit_perc:
-            min_profit_perc = self.min_profit_perc[self.bid.exchange_id]
-        else:
-            min_profit_perc = self._min_profit_perc
+        exchange_profit_perc = self.bid.exchange.min_profit_perc
+        min_profit_perc = exchange_profit_perc if exchange_profit_perc is not None else self._min_profit_perc
 
-        if self.min_profit_amount:
-            min_profit_amount = self.min_profit_amount[self.bid.exchange_id]
-        else:
-            min_profit_amount = self._min_profit_amount
+        exchange_profit_amount = self.ask.exchange.min_profit_amount
+        min_profit_amount = exchange_profit_amount if exchange_profit_amount is not None else self._min_profit_amount
 
         adequate_margin_perc = profit_perc >= min_profit_perc
         adequate_margin_amount = profit_amount >= min_profit_amount
 
         if not adequate_margin_amount and not adequate_margin_perc:
             msg = "Profit percentage {}% below min profit {}%"
-            msg = msg.format(round(profit_perc, 8), self.min_profit_perc)
+            msg = msg.format(round(profit_perc, 8), min_profit_perc)
             self.notify(msg)
 
             msg = "Profit amount {} {} below min profit {} {}"
-            msg = msg.format(round(profit_amount, 8), self.quote_coin, self.min_profit_amount, self.quote_coin)
+            msg = msg.format(round(profit_amount, 8), self.quote_coin, min_profit_amount, self.quote_coin)
             self.notify(msg)
 
         return (adequate_margin_perc or adequate_margin_amount), profit_perc, profit_amount
@@ -280,6 +272,9 @@ class CryptonTrade(object):
             self.quote_coin
         ))
 
+        if self.simulate:
+            return
+
         loop = asyncio.get_event_loop()
         tasks = [
             self.ask.buy(self.trade_id, self.bid_base_order_qty, self.ask.price),
@@ -307,7 +302,7 @@ class CryptonTrade(object):
         return response[0] and response[1]
 
     def save_to_database(self, force=False):
-        if not force and not self.debug_mode:
+        if not force:
             return
 
         data = {
@@ -319,7 +314,6 @@ class CryptonTrade(object):
             "market": self.market,
             "order_quantity": self.bid_base_order_qty,
             "market_pair_id": self.market_pair_id,
-            "debug_mode": self.debug_mode,
             "expected": {
                 "ask": {
                     "price": self.ask.price,
@@ -365,6 +359,9 @@ class CryptonTrade(object):
         db.client.trades.insert_one(data)
 
     def verify_orders(self):
+        if self.simulate:
+            return
+
         for i in range(20):
             tasks = [
                 order.get_status()
@@ -421,7 +418,7 @@ def upsert_market_pair(market, exchange_ids):
     return market_pair_id
 
 
-def activate_crypton(settings):
+def activate_crypton(settings, simulate=False):
     market_pair_id = upsert_market_pair(
         settings["market"],
         settings["exchanges"]
@@ -430,6 +427,7 @@ def activate_crypton(settings):
     exchanges = initiate_exchanges(
         settings["exchanges"],
         preload_market=settings.get("market"),
+        exchange_settings=settings["settings"],
         verbose=settings.get("verbose", True)
     )
 
@@ -448,11 +446,9 @@ def activate_crypton(settings):
             market=settings["market"],
             exchanges=exchanges,
             market_pair_id=market_pair_id,
-            min_profit_perc=settings.get("min_profit_perc"),
-            min_profit_amount=settings.get("min_profit_amount"),
             min_base_qty=settings.get("min_base_qty"),
             min_quote_qty=settings.get("min_quote_qty"),
-            debug_mode=settings.get("debug_mode", False),
+            simulate=simulate,
             verbose=settings.get("verbose", True),
         )
         trade.start()
@@ -481,9 +477,10 @@ def load_settings_file(worker):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-w", "--worker", type=str, help="Specify the configuration file of the worker")
+    parser.add_argument("-s", "--simulate", default=False, type=bool, help="Simulate mode will not order")
     args = parser.parse_args()
 
     settings = load_settings_file(args.worker)
-    activate_crypton(settings)
+    activate_crypton(settings, simulate=args.simulate)
 
 

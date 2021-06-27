@@ -148,7 +148,7 @@ class OrderBase(object):
     def _compare_price_opposite_exchange(self, *args):
         raise NotImplementedError()
 
-    def opportunity(self, price_with_fee_opposite_exchange, max_quote_qty=None, max_base_qty=None):
+    def _opportunity(self, price_with_fee_opposite_exchange, max_quote_qty=None, max_base_qty=None):
         if max_base_qty is None and max_quote_qty is None:
             raise ValueError("No quantity provided in either base or quote currency")
 
@@ -231,6 +231,9 @@ class BestOrderBid(OrderBase):
         # If this is True then there is no arbitrage anymore
         return price_with_fee <= price_with_fee_opposite_exchange
 
+    def opportunity(self, *args, **kwargs):
+        self._opportunity(*args, **kwargs)
+
 
 class BestOrderAsk(OrderBase):
     """
@@ -255,3 +258,13 @@ class BestOrderAsk(OrderBase):
     def _compare_price_opposite_exchange(price_with_fee, price_with_fee_opposite_exchange):
         # If this is True then there is no arbitrage anymore
         return price_with_fee >= price_with_fee_opposite_exchange
+
+    def opportunity(self, *args, **kwargs):
+        self._opportunity(*args, **kwargs)
+
+        # Some exchanges don't want to get an order with a quote qty that is calculated using
+        # order_book layers. It needs available on balance the highest price * base qty
+        if not self.exchange.layered_quote_qty_calc:
+            self.quote_qty = round(self.price_with_fee * self.base_qty, self.exchange_market.quote_precision)
+
+

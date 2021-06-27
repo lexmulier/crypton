@@ -10,13 +10,25 @@ from session import SessionManager
 
 class Exchange(object):
 
-    def __init__(self, exchange_id, preload_market=None, verbose=False):
+    def __init__(self,
+                 exchange_id,
+                 preload_market=None,
+                 layered_quote_qty_calc=True,
+                 min_profit_perc=None,
+                 min_profit_amount=None,
+                 verbose=False
+                 ):
+
         if exchange_id not in EXCHANGES:
             raise ValueError("Exchange {} does not exist according to configuration!".format(exchange_id))
 
         self.exchange_id = exchange_id
         self.api_config = EXCHANGES[exchange_id]
         self.preload_market = preload_market
+
+        self.min_profit_perc = min_profit_perc
+        self.min_profit_amount = min_profit_amount
+        self.layered_quote_qty_calc = layered_quote_qty_calc
         self.verbose = verbose
 
         self.markets = None
@@ -148,14 +160,17 @@ class ExchangeMarket(object):
         return True, best_ask, best_bid
 
 
-def initiate_exchanges(exchange_ids, preload_market=None, verbose=True):
+def initiate_exchanges(exchange_ids, preload_market=None, exchange_settings=None, verbose=True):
+    exchange_settings = exchange_settings or {}
+
     # Initiate exchanges
     exchanges = {}
     for exchange_id in exchange_ids:
         exchange = Exchange(
             exchange_id,
             preload_market=preload_market,
-            verbose=verbose
+            verbose=verbose,
+            **exchange_settings.get(exchange_id, {})
         )
         exchanges[exchange_id] = exchange
 

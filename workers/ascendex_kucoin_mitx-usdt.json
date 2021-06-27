@@ -1,13 +1,15 @@
 {
   "market": "MITX/USDT",
   "exchanges": ["ascendex", "kucoin"],
-  "min_profit_perc": {
-    "kucoin": 0.0,
-    "ascendex": 0.5
-  },
-  "min_profit_amount": {
-    "kucoin": 0.0,
-    "ascendex": 0.2
+  "settings": {
+    "ascendex": {
+      "min_profit_perc": 0.5,
+      "min_profit_amount": 0.5
+    },
+    "kucoin": {
+      "min_profit_perc": 0.0,
+      "min_profit_amount": 0.0
+    }
   },
   "sleep_time": 0.1,
   "verbose": true

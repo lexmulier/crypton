@@ -1,13 +1,16 @@
 {
   "market": "CELO/USDT",
   "exchanges": ["binance", "latoken"],
-  "min_profit_perc": {
-    "binance": 0.2,
-    "latoken": 0.2
-  },
-  "min_profit_amount": {
-    "binance": 0.2,
-    "latoken": 0.2
+  "settings": {
+    "latoken": {
+      "min_profit_perc": 0.2,
+      "min_profit_amount": 0.2,
+      "layered_quote_qty_calc": false
+    },
+    "binance": {
+      "min_profit_perc": 0.2,
+      "min_profit_amount": 0.2
+    }
   },
   "sleep_time": 0.1,
   "verbose": true

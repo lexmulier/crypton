@@ -56,7 +56,7 @@ class LATokenAPI(BaseAPI):
         response = await self.get(url, headers=headers)
         return {
             self._id_to_coin_mapping.get(row["currency"]): float(row["available"])
-            for row in response
+            for row in response if self._id_to_coin_mapping.get(row["currency"])
         }
 
     async def fetch_fees(self, symbol):
