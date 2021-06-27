@@ -143,9 +143,10 @@ class BinanceAPI(BaseAPI):
             "fee": 0.0
         }
 
-        if filled and response["executedQty"] > 0.0:
-            data["fee"] = float(response["cummulativeQuoteQty"]) - float(response["executedQty"])
-            data["base_quantity"] = float(response["executedQty"]),
+        if filled and float(response["executedQty"]) > 0.0:
+            orignal_quote_qty = float(response["price"]) * float(response["origQty"])
+            data["fee"] = (float(response["cummulativeQuoteQty"]) - orignal_quote_qty) / float(response["origQty"])
+            data["base_quantity"] = float(response["executedQty"])
 
         return data
 

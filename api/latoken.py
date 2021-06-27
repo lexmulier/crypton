@@ -131,10 +131,6 @@ class LATokenAPI(BaseAPI):
         headers = self._get_headers(endpoint)
         response = await self.get(url, headers=headers)
 
-        if response.get("status") != "SUCCESS":
-            self.notify("Error status retrieve: {}".format(response))
-            return {}
-
         filled = response["status"] == "FILLED"
         fee = float(response["filled"]) - float(response["cost"]) if filled else 0.0
         data = {
