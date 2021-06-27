@@ -108,9 +108,15 @@ class CryptonTrade(object):
 
         # Now ask and bid are known, set the minimal quantity from the exchange if not forced by user
         if self.min_base_qty is None:
-            self.min_base_qty = self.ask.exchange.markets[self.market].min_base_qty
+            self.min_base_qty = max(
+                self.bid.exchange.markets[self.market].min_base_qty,
+                self.ask.exchange.markets[self.market].min_base_qty
+            )
         if self.min_quote_qty is None:
-            self.min_quote_qty = self.bid.exchange.markets[self.market].min_quote_qty
+            self.min_quote_qty = max(
+                self.bid.exchange.markets[self.market].min_quote_qty,
+                self.ask.exchange.markets[self.market].min_quote_qty
+            )
 
     def fetch_orders(self):
         loop = asyncio.get_event_loop()
@@ -375,6 +381,9 @@ class CryptonTrade(object):
 
                 self.actual_profit_amount = self.bid.actual_quote_qty - self.ask.actual_quote_qty
                 self.actual_profit_perc = (self.actual_profit_amount / self.bid.actual_quote_qty) * 100.0
+
+                self.ask.exchange.balance[self.quote_coin] -= self.ask_quote_order_qty
+                self.bid.exchange.balance[self.base_coin] -= self.bid_base_order_qty
                 return
 
         self.successful = False
@@ -421,7 +430,8 @@ def activate_crypton(settings):
     exchanges = initiate_exchanges(
         settings["exchanges"],
         preload_market=settings.get("market"),
-        verbose=settings.get("verbose", True))
+        verbose=settings.get("verbose", True)
+    )
 
     counter = 0
     while True:
