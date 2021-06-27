@@ -28,9 +28,11 @@ class BinanceAPI(BaseAPI):
         for market in response["symbols"]:
             min_base_qty = 0.0
             min_quote_qty = 0.0
+            base_precision = int(market["baseAssetPrecision"])
             for filter_row in market["filters"]:
                 if filter_row["filterType"] == "LOT_SIZE":
                     min_base_qty = float(filter_row["minQty"])
+                    base_precision = self._precision(filter_row["minQty"].rstrip("0"))
                 if filter_row["filterType"] == "MIN_NOTIONAL":
                     min_quote_qty = float(filter_row["minNotional"])
 
@@ -40,11 +42,10 @@ class BinanceAPI(BaseAPI):
                 "quote": market["quoteAsset"],
                 "min_base_qty": min_base_qty,
                 "min_quote_qty": min_quote_qty,
-                "base_precision": int(market["baseAssetPrecision"]),
+                "base_precision": base_precision,
                 "quote_precision": int(market["quoteAssetPrecision"]),
                 "price_precision": int(market["quotePrecision"]),
             })
-
         return markets
 
     async def fetch_balance(self):
