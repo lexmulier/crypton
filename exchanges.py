@@ -16,7 +16,8 @@ class Exchange(object):
                  layered_quote_qty_calc=True,
                  min_profit_perc=None,
                  min_profit_amount=None,
-                 verbose=False
+                 verbose=False,
+                 debug_mode=False,
                  ):
 
         if exchange_id not in EXCHANGES:
@@ -30,6 +31,7 @@ class Exchange(object):
         self.min_profit_amount = min_profit_amount
         self.layered_quote_qty_calc = layered_quote_qty_calc
         self.verbose = verbose
+        self.debug_mode = debug_mode
 
         self.markets = None
         self.market_symbols = None
@@ -160,7 +162,7 @@ class ExchangeMarket(object):
         return True, best_ask, best_bid
 
 
-def initiate_exchanges(exchange_ids, preload_market=None, exchange_settings=None, verbose=True):
+def initiate_exchanges(exchange_ids, preload_market=None, exchange_settings=None, verbose=True, debug_mode=False):
     exchange_settings = exchange_settings or {}
 
     # Initiate exchanges
@@ -170,6 +172,7 @@ def initiate_exchanges(exchange_ids, preload_market=None, exchange_settings=None
             exchange_id,
             preload_market=preload_market,
             verbose=verbose,
+            debug_mode=debug_mode,
             **exchange_settings.get(exchange_id, {})
         )
         exchanges[exchange_id] = exchange

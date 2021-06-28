@@ -1,4 +1,5 @@
 import json
+import pprint
 
 import time
 
@@ -7,7 +8,14 @@ class BaseAPI(object):
 
     def __init__(self, config, exchange=None, *args, **kwargs):
         self.config = config
-        self.exchange = exchange
+
+        if exchange is not None:
+            self.exchange = exchange
+            self.debug_mode = exchange.debug_mode
+        else:
+            self.exchange = None
+            self.debug_mode = True
+
         self.session = None
 
     def notify(self, *args):
@@ -16,23 +24,41 @@ class BaseAPI(object):
         else:
             print(*args)
 
-    async def get(self, url, headers=None):
+    def debugger(self, **kwargs):
+        if not self.debug_mode:
+            return
+
+        print("#" * 20)
+        for name, data in kwargs.items():
+            print(name.upper(), ":")
+            pprint.pprint(data)
+
+        print("#" * 20)
+
+    async def get(self, url, data=None, headers=None):
         headers = headers or {}
-        async with self.session.get(url, headers=headers) as response:
-            return await response.json()
+        data = data or {}
+        async with self.session.get(url, data=data, headers=headers) as response:
+            json_response = await response.json()
+            self.debugger(url=url, data=data, headers=headers, response=json_response)
+            return json_response
 
     async def post(self, url, data=None, headers=None):
         headers = headers or {}
         data = data or {}
         headers["Content-Type"] = "application/json"
         async with self.session.post(url, data=data, headers=headers) as response:
-            return await response.json()
+            json_response = await response.json()
+            self.debugger(url=url, data=data, headers=headers, response=json_response)
+            return json_response
 
     async def delete(self, url, data=None, headers=None):
         headers = headers or {}
         data = data or {}
         async with self.session.delete(url, data=data, headers=headers) as response:
-            return await response.json()
+            json_response = await response.json()
+            self.debugger(url=url, data=data, headers=headers, response=json_response)
+            return json_response
 
     async def fetch_fees(self, *args, **kwargs):
         """
@@ -92,6 +118,13 @@ class BaseAPI(object):
                 "filled": bool
         """
         raise NotImplementedError("fetch_order_status not implemented for this API")
+
+    async def fetch_order_history(self, *args, **kwargs):
+        """
+        Returns:
+            response as from the the Exchange API.
+        """
+        raise NotImplementedError("fetch_order_history not implemented for this API")
 
     async def create_order(self, *args, **kwargs):
         """

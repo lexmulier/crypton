@@ -135,20 +135,23 @@ class BinanceAPI(BaseAPI):
             return
 
         filled = response["status"] == "FILLED"
-        data = {
+        return {
             "price": float(response["price"]),
             "base_quantity": float(response["origQty"]),
             "timestamp": datetime.datetime.fromtimestamp(response["time"] / 1000.0),
             "filled": filled,
-            "fee": 0.0
+            "fee": None
         }
 
-        if filled and float(response["executedQty"]) > 0.0:
-            orignal_quote_qty = float(response["price"]) * float(response["origQty"])
-            data["fee"] = (float(response["cummulativeQuoteQty"]) - orignal_quote_qty) / float(response["origQty"])
-            data["base_quantity"] = float(response["executedQty"])
-
-        return data
+    async def fetch_order_history(self, symbol=None):
+        endpoint = "/api/v3/allOrders"
+        data = {
+            "symbol": symbol.replace("/", ""),
+            "timestamp": int(self._nonce())
+        }
+        url = self._get_request_url(endpoint, data=data)
+        response = await self.get(url, headers=self._headers)
+        return response
 
     def _get_request_url(self, endpoint, data=None, timestamp=None, signature=True):
         query_string = ""

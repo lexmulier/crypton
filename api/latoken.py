@@ -131,17 +131,21 @@ class LATokenAPI(BaseAPI):
         headers = self._get_headers(endpoint)
         response = await self.get(url, headers=headers)
 
-        filled = response["status"] == "FILLED"
-        fee = float(response["filled"]) - float(response["cost"]) if filled else 0.0
-        data = {
+        filled = response["status"] == "ORDER_STATUS_CLOSED"
+        return {
             "price": float(response["price"]),
             "base_quantity": float(response["quantity"]),
-            "fee": fee,
+            "fee": None,
             "timestamp": datetime.datetime.fromtimestamp(response["timestamp"] / 1000.0),
             "filled": filled
         }
 
-        return data
+    async def fetch_order_history(self, *args, **kwargs):
+        endpoint = "/v2/auth/order"
+        url = self._base_url + endpoint
+        headers = self._get_headers(endpoint)
+        response = await self.get(url, headers=headers)
+        return response
 
     def _get_headers(self, endpoint, method="GET", data=None):
         data_str = self._get_params_for_sig(data) if data else ""

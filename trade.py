@@ -282,15 +282,6 @@ class CryptonTrade(object):
         ]
         response = loop.run_until_complete(asyncio.gather(*tasks))
 
-        buy_order_success = response[0]
-        sell_order_success = response[1]
-
-        if not any([sell_order_success, buy_order_success]):
-            msg = "Error! Trying to cancel both (sell: {}, buy: {})"
-            self.notify(msg.format(self.bid.order_id, self.ask.order_id))
-            self.cancel_orders()
-            raise ValueError("Order placement was not successful")
-
     def cancel_orders(self):
         loop = asyncio.get_event_loop()
         tasks = [self.ask.cancel(), self.bid.cancel()]
@@ -388,7 +379,7 @@ class CryptonTrade(object):
 
 
 def refresh_exchange_balances(counter, exchanges):
-    if counter % 1000 == 0:
+    if counter % 200 == 0:
         update_local_balances_from_exchanges(exchanges)
     elif counter % 20 == 0:
         for exchange in exchanges.values():
@@ -455,7 +446,7 @@ def activate_crypton(settings, simulate=False):
 
         # Update the balance information with the latest from the exchange
         if trade.successful is not None:
-            sleep_now(seconds=5)
+            sleep_now(seconds=2)
             update_local_balances_from_exchanges(exchanges)
 
         counter += 1

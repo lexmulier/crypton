@@ -125,14 +125,11 @@ class OrderBase(object):
         async with self.exchange.session_manager:
             result = await self.exchange.client.fetch_order_status(self.exchange_order_id, symbol=self.symbol)
 
-            if not result:
+            if not result or "price" not in result:
                 return
 
             self.actual_price = round(
                 result["price"], self.exchange_market.price_precision
-            )
-            self.actual_price_with_fee = round(
-                result["fee"] / result["base_quantity"], self.exchange_market.price_precision
             )
             self.actual_base_qty = round(
                 result["base_quantity"], self.exchange_market.base_precision
@@ -144,6 +141,13 @@ class OrderBase(object):
 
             if result["filled"] is True:
                 self.status = self.STATUS_FILLED
+
+            if result["fee"] is None:
+                self.actual_price_with_fee = self._calculate_price_with_fee(result["price"])
+            else:
+                self.actual_price_with_fee = round(
+                    result["fee"] / result["base_quantity"], self.exchange_market.price_precision
+                )
 
     def _compare_price_opposite_exchange(self, *args):
         raise NotImplementedError()
