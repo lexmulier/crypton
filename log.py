@@ -55,5 +55,5 @@ class CryptonLogger(object):
         logger.setLevel(self.level)
         logger.addHandler(self._get_console_handler(formatter=self._log_formatter))
 
-        if self.filename:
-            logger.addHandler(self._get_file_handler(formatter=self._log_formatter))
+        # if self.filename:
+        #     logger.addHandler(self._get_file_handler(formatter=self._log_formatter))
