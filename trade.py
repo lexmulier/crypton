@@ -477,7 +477,7 @@ if __name__ == "__main__":
 
     logger_class.filename = args.worker
     logger_class.level = args.loglevel
-    logger = logger_class.get(formatter=LOG_FORMATTER)
+    logger = logger_class.get(__name__, formatter=LOG_FORMATTER)
 
     settings = load_settings_file(args.worker)
     activate_crypton(settings, simulate=args.simulate)

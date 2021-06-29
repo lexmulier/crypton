@@ -38,8 +38,8 @@ class CryptonLogger(object):
     def get_root(self):
         root_logger = getLogger()
 
-        log_level = self.LOG_LEVELS.get(self.level.upper(), DEBUG)
-        root_logger.setLevel(log_level)
+        self.level = self.LOG_LEVELS.get(self.level.upper(), DEBUG)
+        root_logger.setLevel(self.level)
         root_logger.propagate = False
 
         return root_logger
@@ -47,6 +47,7 @@ class CryptonLogger(object):
     def get(self, name, formatter=None):
         logger = getLogger(name)
 
+        logger.setLevel(self.level)
         logger.addHandler(self.get_console_handler(formatter=formatter))
         logger.addHandler(self.get_file_handler(formatter=formatter))
 
