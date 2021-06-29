@@ -30,5 +30,5 @@ class IndoExAPI(BaseAPI):
         return {}
 
     async def fetch_fees(self, _):
-        self.exchange.notify("NEEDS IMPROVEMENT")
+        self.exchange.log("NEEDS IMPROVEMENT")
         return {"maker": 0.1, "taker": 0.2}

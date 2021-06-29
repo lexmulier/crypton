@@ -73,7 +73,7 @@ class AscendexAPI(BaseAPI):
         response = await self.get(url, headers=headers)
 
         if response.get('code', 0) != 0:
-            self.notify("Error status retrieve: {}".format(response))
+            self.log("Error status retrieve: {}".format(response))
             return
 
         data = {
@@ -114,11 +114,11 @@ class AscendexAPI(BaseAPI):
         response = await self.post(url, compact_data, headers=headers)
 
         if response.get('code', 0) != 0:
-            self.notify("Error on {} order: {}".format(side, response))
+            self.log("Error on {} order: {}".format(side, response))
             return False, response
 
         exchange_order_id = response["data"]["info"]["orderId"]
-        self.notify("Exchange order ID", exchange_order_id)
+        self.log("Exchange order ID", exchange_order_id)
 
         return True, exchange_order_id
 
@@ -135,7 +135,7 @@ class AscendexAPI(BaseAPI):
         response = await self.delete(url, data=compact_data, headers=headers)
 
         if response.get('code', 0) != 0:
-            self.notify("Error on cancel order: {}".format(response))
+            self.log("Error on cancel order: {}".format(response))
             return response
 
         return response['data']['status'] == 'Ack'

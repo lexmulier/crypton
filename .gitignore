@@ -3,6 +3,7 @@
 venv/
 notebooks/
 old_files/
+logs/
 __pycache__/
 
 # Settings

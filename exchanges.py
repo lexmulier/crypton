@@ -1,11 +1,16 @@
 import asyncio
+
 import datetime
 
 from api.get_client import get_client
 from config import EXCHANGES
+from log import logger_class
 from models import db
 from orders import BestOrderAsk, BestOrderBid
 from session import SessionManager
+
+LOG_FORMATTER = "[%(levelname)s:%(asctime)s - EXCHANGE %(exchange_id)s ] %(message)s'"
+logger = logger_class.get(__name__, formatter=LOG_FORMATTER)
 
 
 class Exchange(object):
@@ -16,7 +21,6 @@ class Exchange(object):
                  layered_quote_qty_calc=True,
                  min_profit_perc=None,
                  min_profit_amount=None,
-                 verbose=False,
                  debug_mode=False,
                  ):
 
@@ -26,11 +30,11 @@ class Exchange(object):
         self.exchange_id = exchange_id
         self.api_config = EXCHANGES[exchange_id]
         self.preload_market = preload_market
+        self.exchange_logger = {'exchange_id': str(self.exchange_id)}
 
         self.min_profit_perc = min_profit_perc
         self.min_profit_amount = min_profit_amount
         self.layered_quote_qty_calc = layered_quote_qty_calc
-        self.verbose = verbose
         self.debug_mode = debug_mode
 
         self.markets = None
@@ -40,9 +44,13 @@ class Exchange(object):
         self.client = get_client(self)
         self.session_manager = SessionManager(self.client)
 
-    def notify(self, *args):
-        if self.verbose:
-            print("EXCHANGE {}:".format(self.exchange_id), *args)
+    def log(self, log_message, level="INFO"):
+        if level == "DEBUG":
+            logger.debug(log_message, **self.exchange_logger)
+        elif level == "ERROR":
+            logger.error(log_message, **self.exchange_logger)
+        else:
+            logger.info(log_message, **self.exchange_logger)
 
     async def _initiate_markets(self):
         markets = await self.client.fetch_markets()
@@ -52,13 +60,9 @@ class Exchange(object):
         for market in markets:
             market_symbol = market['symbol']
             market_symbols.append(market_symbol)
-            exchange_markets[market_symbol] = ExchangeMarket(
-                self,
-                market,
-                verbose=self.verbose
-            )
+            exchange_markets[market_symbol] = ExchangeMarket(self, market)
 
-        self.notify("Found {} markets".format(len(exchange_markets)))
+        self.log("Found {} markets".format(len(exchange_markets)))
 
         self.markets = exchange_markets
         self.market_symbols = market_symbols
@@ -111,7 +115,7 @@ class ExchangeMarket(object):
     _default_quote_precision = 8
     _default_price_precision = 8
 
-    def __init__(self, exchange, market, verbose=False):
+    def __init__(self, exchange, market):
         self.exchange = exchange
         self.symbol = market['symbol']
         self.base_coin = market.get('base', market.get('baseId'))
@@ -121,9 +125,7 @@ class ExchangeMarket(object):
         self.base_precision = market.get('base_precision', self._default_base_precision)
         self.quote_precision = market.get('quote_precision', self._default_quote_precision)
         self.price_precision = market.get('price_precision', self._default_price_precision)
-
         self.info = market
-        self.verbose = verbose
 
         self.trading_fees = None
 
@@ -131,7 +133,7 @@ class ExchangeMarket(object):
         self.trading_fees = await self.exchange.client.fetch_fees(self.symbol)
 
     async def preload(self):
-        self.exchange.notify("Preloading market info for {}".format(self.symbol))
+        self.exchange.log("Preloading market info for {}".format(self.symbol))
         await self._retrieve_trading_fees()
 
     def get_market_info(self):
@@ -149,11 +151,11 @@ class ExchangeMarket(object):
             try:
                 asks, bids = await self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
             except Exception as error:
-                self.exchange.notify("Unsuccessful reaching market {}: {}".format(self.symbol, error))
+                self.exchange.log("Unsuccessful reaching market {}: {}".format(self.symbol, error))
                 return False, None, None
 
         if not asks or not bids:
-            self.exchange.notify("No Asks or Bids found for market", self.symbol)
+            self.exchange.log("No Asks or Bids found for market {}".format(self.symbol))
             return False, None, None
 
         best_ask = BestOrderAsk(self, self.exchange, asks)
@@ -162,7 +164,7 @@ class ExchangeMarket(object):
         return True, best_ask, best_bid
 
 
-def initiate_exchanges(exchange_ids, preload_market=None, exchange_settings=None, verbose=True, debug_mode=False):
+def initiate_exchanges(exchange_ids, preload_market=None, exchange_settings=None, debug_mode=False):
     exchange_settings = exchange_settings or {}
 
     # Initiate exchanges
@@ -171,7 +173,6 @@ def initiate_exchanges(exchange_ids, preload_market=None, exchange_settings=None
         exchange = Exchange(
             exchange_id,
             preload_market=preload_market,
-            verbose=verbose,
             debug_mode=debug_mode,
             **exchange_settings.get(exchange_id, {})
         )

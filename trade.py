@@ -1,4 +1,5 @@
 import asyncio
+
 import datetime
 import argparse
 import json
@@ -6,11 +7,12 @@ import os
 
 from bson import ObjectId
 
+from log import logger_class
 from exchanges import initiate_exchanges
 from models import db
 from utils import sleep_now
 
-WORKERS_DIR = "workers"
+LOG_FORMATTER = "[%(levelname)s:%(asctime)s - CRYPTON %(trade_id)s] %(message)s"
 
 
 class CryptonTrade(object):
@@ -25,8 +27,7 @@ class CryptonTrade(object):
             min_base_qty=None,
             min_quote_qty=None,
             market_pair_id=None,
-            simulate=False,
-            verbose=True
+            simulate=False
     ):
         self.market = market
         self.base_coin, self.quote_coin = market.split("/")
@@ -39,9 +40,9 @@ class CryptonTrade(object):
         self.market_pair_id = market_pair_id or "_".join([*sorted(exchanges), market]).upper()
 
         self.simulate = simulate
-        self.verbose = verbose
 
         self.trade_id = ObjectId()
+        self.trade_id_logger = {'trade_id': str(self.trade_id)}
         self.timestamp = datetime.datetime.now()
 
         self.successful = None
@@ -58,12 +59,16 @@ class CryptonTrade(object):
         self.actual_profit_perc = None
         self.actual_profit_amount = None
 
-    def notify(self, *args):
-        if self.verbose:
-            print("TRADE {}:".format(self.trade_id if self.trade_id else ""), *args)
+    def log(self, log_message, level="INFO"):
+        if level == "DEBUG":
+            logger.debug(log_message, **self.trade_id_logger)
+        elif level == "ERROR":
+            logger.error(log_message, **self.trade_id_logger)
+        else:
+            logger.info(log_message, **self.trade_id_logger)
 
     def start(self):
-        self.notify('#' * 30)
+        self.log('#' * 30)
 
         # Fetch orders from the exchanges
         success, best_exchange_asks, best_exchange_bids = self.fetch_orders()
@@ -99,8 +104,8 @@ class CryptonTrade(object):
         # Pick the ask and bid exchange based on arbitrage.
         self.ask = min(best_exchange_asks)
         self.bid = max(best_exchange_bids)
-        self.notify(self.ask)
-        self.notify(self.bid)
+        self.log(self.ask)
+        self.log(self.bid)
 
         # Now ask and bid are known, set the minimal quantity from the exchange if not forced by user
         if self.min_base_qty is None:
@@ -136,12 +141,12 @@ class CryptonTrade(object):
         # Need to recalculate the quantity based on the result of the lowest exchange/balance
         if self.ask.base_qty > self.bid.base_qty:
             # The bid exchange is dictating the maximum amount, recalculating the ask exchange using the new qty
-            self.notify("Taking order quantity from bid quantity: {} {}".format(self.bid.base_qty, self.base_coin))
+            self.log("Taking order quantity from bid quantity: {} {}".format(self.bid.base_qty, self.base_coin))
             self.ask.opportunity(self.bid.first_price_with_fee, max_base_qty=self.bid.base_qty)
 
         elif self.bid.base_qty > self.ask.base_qty:
             # The ask exchange is dictating the maximum amount, recalculating the bid exchange using the new qty
-            self.notify("Taking order quantity from ask quantity: {} {}".format(self.ask.base_qty, self.base_coin))
+            self.log("Taking order quantity from ask quantity: {} {}".format(self.ask.base_qty, self.base_coin))
             self.bid.opportunity(self.ask.first_price_with_fee, max_base_qty=self.ask.base_qty)
 
         # TODO: Check why there is difference:
@@ -166,16 +171,16 @@ class CryptonTrade(object):
         # How much volume can I buy with my payment currency
         self.ask_quote_exchange_qty = self.ask.exchange.get_balance(symbol=self.quote_coin)
         if self.min_quote_qty > self.ask_quote_exchange_qty:
-            self.notify(msg.format(self.quote_coin, self.ask.exchange_id, self.ask_quote_exchange_qty))
+            self.log(msg.format(self.quote_coin, self.ask.exchange_id, self.ask_quote_exchange_qty))
             return False
 
         # How much volume can I sell due to how much I have in balance
         self.bid_base_exchange_qty = self.bid.exchange.get_balance(symbol=self.base_coin)
         if self.min_base_qty > self.bid_base_exchange_qty or self.bid_base_exchange_qty == 0.0:
-            self.notify(msg.format(self.base_coin, self.bid.exchange_id, self.bid_base_exchange_qty))
+            self.log(msg.format(self.base_coin, self.bid.exchange_id, self.bid_base_exchange_qty))
             return False
 
-        self.notify("{} {} on BID exchange {} | {} {} on ASK exchange {}".format(
+        self.log("{} {} on BID exchange {} | {} {} on ASK exchange {}".format(
             self.bid_base_exchange_qty, self.base_coin, self.bid.exchange_id,
             self.ask_quote_exchange_qty, self.quote_coin, self.ask.exchange_id,
         ))
@@ -201,11 +206,11 @@ class CryptonTrade(object):
         if not adequate_margin_amount and not adequate_margin_perc:
             msg = "Profit percentage {}% below min profit {}%"
             msg = msg.format(round(profit_perc, 8), min_profit_perc)
-            self.notify(msg)
+            self.log(msg)
 
             msg = "Profit amount {} {} below min profit {} {}"
             msg = msg.format(round(profit_amount, 8), self.quote_coin, min_profit_amount, self.quote_coin)
-            self.notify(msg)
+            self.log(msg)
 
         return (adequate_margin_perc or adequate_margin_amount), profit_perc, profit_amount
 
@@ -216,24 +221,24 @@ class CryptonTrade(object):
         """
         # Check if the best ask and best bid are on different exchanges.
         if self.ask.exchange_id == self.bid.exchange_id:
-            self.notify("Skipping: Best ask and best bid are on the same exchange")
+            self.log("Skipping: Best ask and best bid are on the same exchange")
             return False
 
         # If these lists are empty then there is no arbitrage
         if not self.ask.opportunity_found or not self.bid.opportunity_found:
-            self.notify("Skipping: No good arbitrage opportunities found".format(self.min_base_qty))
+            self.log("Skipping: No good arbitrage opportunities found".format(self.min_base_qty))
             return False
 
         # We want to order at least a certain amount to avoid small trading
         if self.bid_base_order_qty <= self.min_base_qty:
             msg = "Skipping: {} Order quantity {} is below minimal quantity ({})"
-            self.notify(msg.format(self.base_coin, self.bid_base_order_qty, self.min_base_qty))
+            self.log(msg.format(self.base_coin, self.bid_base_order_qty, self.min_base_qty))
             return False
 
         # We want to order at least a certain amount to avoid small trading
         if self.ask_quote_order_qty <= self.min_quote_qty:
             msg = "Skipping: {} Order quantity {} is below minimal quantity ({})"
-            self.notify(msg.format(self.quote_coin, self.ask_quote_order_qty, self.min_quote_qty))
+            self.log(msg.format(self.quote_coin, self.ask_quote_order_qty, self.min_quote_qty))
             return False
 
         # Check if the amount or percentage is high enough to take the risk
@@ -241,12 +246,12 @@ class CryptonTrade(object):
         if not adequate_margin:
             return False
 
-        self.notify(self.ask)
-        self.notify(self.bid)
+        self.log(self.ask)
+        self.log(self.bid)
 
         # Notify about the profit
-        message = "Profit margin: {}% | Profit in {}: {}"
-        self.notify(message.format(round(profit_perc, 8), self.quote_coin, round(profit_amount, 8)))
+        msg = "Profit margin: {}% | Profit in {}: {}"
+        self.log(msg.format(round(profit_perc, 8), self.quote_coin, round(profit_amount, 8)))
 
         self.expected_profit_perc = profit_perc
         self.expected_profit_amount = profit_amount
@@ -255,7 +260,7 @@ class CryptonTrade(object):
 
     def initiate_orders(self):
         msg = "{} @ {}: quantity={} | price={} | price_with_fee={} {}"
-        self.notify(msg.format(
+        self.log(msg.format(
             "BUYING ",
             self.ask.exchange_id,
             self.bid_base_order_qty,
@@ -263,7 +268,7 @@ class CryptonTrade(object):
             self.ask.price_with_fee,
             self.quote_coin
         ))
-        self.notify(msg.format(
+        self.log(msg.format(
             "SELLING",
             self.bid.exchange_id,
             self.bid_base_order_qty,
@@ -287,8 +292,8 @@ class CryptonTrade(object):
         tasks = [self.ask.cancel(), self.bid.cancel()]
         response = loop.run_until_complete(asyncio.gather(*tasks))
 
-        self.ask.exchange.notify("Cancelled order {} success: {}".format(self.ask.order_id, response[0]))
-        self.bid.exchange.notify("Cancelled order {} success: {}".format(self.bid.order_id, response[1]))
+        self.ask.exchange.log("Cancelled order {} success: {}".format(self.ask.order_id, response[0]))
+        self.bid.exchange.log("Cancelled order {} success: {}".format(self.bid.order_id, response[1]))
 
         return response[0] and response[1]
 
@@ -364,7 +369,7 @@ class CryptonTrade(object):
                 loop.run_until_complete(asyncio.gather(*tasks))
                 sleep_now(seconds=1 + (i / 10.0))
             else:
-                self.notify("Both orders successful!")
+                self.log("Both orders successful!")
                 self.successful = True
 
                 self.actual_profit_amount = self.bid.actual_quote_qty - self.ask.actual_quote_qty
@@ -375,7 +380,7 @@ class CryptonTrade(object):
                 return
 
         self.successful = False
-        self.notify("Something is wrong! Could not verify if orders are successful")
+        self.log("Something is wrong! Could not verify if orders are successful")
 
 
 def refresh_exchange_balances(counter, exchanges):
@@ -418,8 +423,7 @@ def activate_crypton(settings, simulate=False):
     exchanges = initiate_exchanges(
         settings["exchanges"],
         preload_market=settings.get("market"),
-        exchange_settings=settings["settings"],
-        verbose=settings.get("verbose", True)
+        exchange_settings=settings["settings"]
     )
 
     counter = 0
@@ -439,8 +443,7 @@ def activate_crypton(settings, simulate=False):
             market_pair_id=market_pair_id,
             min_base_qty=settings.get("min_base_qty"),
             min_quote_qty=settings.get("min_quote_qty"),
-            simulate=simulate,
-            verbose=settings.get("verbose", True),
+            simulate=simulate
         )
         trade.start()
 
@@ -454,7 +457,7 @@ def activate_crypton(settings, simulate=False):
 
 def load_settings_file(worker):
     filename = worker if worker[-4:] == "json" else worker + ".json"
-    filename = os.path.join(WORKERS_DIR, filename)
+    filename = os.path.join("workers", filename)
 
     if filename is None or not os.path.exists(filename):
         raise ImportError("No settings file is provided or file does not exist!")
@@ -469,7 +472,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-w", "--worker", type=str, help="Specify the configuration file of the worker")
     parser.add_argument("-s", "--simulate", default=False, type=bool, help="Simulate mode will not order")
+    parser.add_argument("-l", "--loglevel", default=False, type=bool, help="debug, info or error")
     args = parser.parse_args()
+
+    logger_class.filename = args.worker
+    logger_class.level = args.loglevel
+    logger = logger_class.get(formatter=LOG_FORMATTER)
 
     settings = load_settings_file(args.worker)
     activate_crypton(settings, simulate=args.simulate)

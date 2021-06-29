@@ -1,7 +1,11 @@
 import json
 import pprint
-
 import time
+
+from log import logger_class
+
+LOG_FORMATTER = "[%(levelname)s:%(asctime)s - EXCHANGE %(exchange_id)s API %(api_name)s] %(message)s"
+logger = logger_class.get(__name__, formatter=LOG_FORMATTER)
 
 
 class BaseAPI(object):
@@ -12,17 +16,21 @@ class BaseAPI(object):
         if exchange is not None:
             self.exchange = exchange
             self.debug_mode = exchange.debug_mode
+            self.api_logger = {"exchange_id": "N/A", "api_name": self.__class__.__name__}
         else:
             self.exchange = None
             self.debug_mode = True
+            self.api_logger = {"exchange_id": exchange.exchange_id, "api_name": self.__class__.__name__}
 
         self.session = None
 
-    def notify(self, *args):
-        if self.exchange:
-            self.exchange.notify(*args)
+    def log(self, log_message, level="INFO"):
+        if level == "DEBUG":
+            logger.debug(log_message, **self.api_logger)
+        elif level == "ERROR":
+            logger.error(log_message, **self.api_logger)
         else:
-            print(*args)
+            logger.info(log_message, **self.api_logger)
 
     def debugger(self, **kwargs):
         if not self.debug_mode:
