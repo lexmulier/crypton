@@ -1,47 +1,42 @@
 import json
 import pprint
 import time
+import logging
 
-from log import logger_class
+from log import CryptonLogger
 
-LOG_FORMATTER = "[%(levelname)s:%(asctime)s - EXCHANGE %(exchange_id)s API %(api_name)s] %(message)s"
-logger = logger_class.get(__name__, formatter=LOG_FORMATTER)
+logger = logging.getLogger(__name__)
 
 
 class BaseAPI(object):
 
-    def __init__(self, config, exchange=None, *args, **kwargs):
+    def __init__(self, config, exchange=None, log_level=None, *args, **kwargs):
         self.config = config
 
+        api_name = self.__class__.__name__
         if exchange is not None:
             self.exchange = exchange
-            self.debug_mode = exchange.debug_mode
-            self.api_logger = {"exchange_id": "N/A", "api_name": self.__class__.__name__}
+            api_logger = {f'module_fields': f"EXCHANGE N/A - API {api_name}"}
         else:
             self.exchange = None
-            self.debug_mode = True
-            self.api_logger = {"exchange_id": exchange.exchange_id, "api_name": self.__class__.__name__}
+            api_logger = {'module_fields': f"EXCHANGE {exchange.exchange_id} - API {api_name}"}
+
+        if log_level is not None:
+            CryptonLogger(level=log_level).initiate()
+
+        self.log = logging.LoggerAdapter(logger, api_logger)
+
+        self.debug_mode = logger.level == logging.DEBUG
 
         self.session = None
 
-    def log(self, log_message, level="INFO"):
-        if level == "DEBUG":
-            logger.debug(log_message, **self.api_logger)
-        elif level == "ERROR":
-            logger.error(log_message, **self.api_logger)
-        else:
-            logger.info(log_message, **self.api_logger)
-
     def debugger(self, **kwargs):
-        if not self.debug_mode:
-            return
-
-        print("#" * 20)
-        for name, data in kwargs.items():
-            print(name.upper(), ":")
-            pprint.pprint(data)
-
-        print("#" * 20)
+        if self.debug_mode:
+            self.log.debug("#" * 20)
+            for name, data in kwargs.items():
+                self.log.debug(name.upper(), ":")
+                self.log.debug(pprint.pformat(data))
+            self.log.debug("#" * 20)
 
     async def get(self, url, data=None, headers=None):
         headers = headers or {}
@@ -174,13 +169,12 @@ class BaseAPI(object):
     @staticmethod
     def _precision(value):
         if float(value) < 1.0:
-            #value = value.rstrip("0")
             precision = value[::-1].find('.')
         elif float(value) >= 1.0:
             value = str(float(value))
             precision = (value.find('.') * -1) + 1
         else:
-            raise ValueError("A precision we can't solve! {}".format(value))
+            raise ValueError(f"A precision we can't solve! {value}")
 
         return precision
 

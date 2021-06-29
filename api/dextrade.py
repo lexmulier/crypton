@@ -35,12 +35,12 @@ class DexTradeAPI(BaseAPI):
 
     # TODO: WIP
     async def fetch_balance(self):
-        self.exchange.log("NEEDS IMPROVEMENT")
+        self.exchange.log.info("NEEDS IMPROVEMENT")
         # url = "https://api.dex-trade.com/v1/private/balances"
         # response = await self.get(url)
         # balance = {row["asset"]: float(row["free"]) for row in response.get("balances", {})}
         return {}
 
     async def fetch_fees(self, _):
-        self.exchange.log("NEEDS IMPROVEMENT")
+        self.exchange.log.info("NEEDS IMPROVEMENT")
         return {"maker": 0.1, "taker": 0.2}

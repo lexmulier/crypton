@@ -1,16 +1,15 @@
 import asyncio
-
+import logging
 import datetime
 
 from api.get_client import get_client
 from config import EXCHANGES
-from log import logger_class
+from log import CryptonLogger
 from models import db
 from orders import BestOrderAsk, BestOrderBid
 from session import SessionManager
 
-LOG_FORMATTER = "[%(levelname)s:%(asctime)s - EXCHANGE %(exchange_id)s ] %(message)s'"
-logger = logger_class.get(__name__, formatter=LOG_FORMATTER)
+logger = logging.getLogger(__name__)
 
 
 class Exchange(object):
@@ -21,21 +20,19 @@ class Exchange(object):
                  layered_quote_qty_calc=True,
                  min_profit_perc=None,
                  min_profit_amount=None,
-                 debug_mode=False,
+                 log_level=False,
                  ):
 
         if exchange_id not in EXCHANGES:
-            raise ValueError("Exchange {} does not exist according to configuration!".format(exchange_id))
+            raise ValueError(f"Exchange {self.exchange_id} does not exist according to configuration!")
 
         self.exchange_id = exchange_id
         self.api_config = EXCHANGES[exchange_id]
         self.preload_market = preload_market
-        self.exchange_logger = {'exchange_id': str(self.exchange_id)}
 
         self.min_profit_perc = min_profit_perc
         self.min_profit_amount = min_profit_amount
         self.layered_quote_qty_calc = layered_quote_qty_calc
-        self.debug_mode = debug_mode
 
         self.markets = None
         self.market_symbols = None
@@ -44,13 +41,11 @@ class Exchange(object):
         self.client = get_client(self)
         self.session_manager = SessionManager(self.client)
 
-    def log(self, log_message, level="INFO"):
-        if level == "DEBUG":
-            logger.debug(log_message, **self.exchange_logger)
-        elif level == "ERROR":
-            logger.error(log_message, **self.exchange_logger)
-        else:
-            logger.info(log_message, **self.exchange_logger)
+        if log_level is not None:
+            CryptonLogger(level=log_level).initiate()
+
+        exchange_logger = {'module_fields': f"EXCHANGE {self.exchange_id}"}
+        self.log = logging.LoggerAdapter(logger, exchange_logger)
 
     async def _initiate_markets(self):
         markets = await self.client.fetch_markets()
@@ -62,7 +57,7 @@ class Exchange(object):
             market_symbols.append(market_symbol)
             exchange_markets[market_symbol] = ExchangeMarket(self, market)
 
-        self.log("Found {} markets".format(len(exchange_markets)))
+        self.log.info(f"Found {len(exchange_markets)} markets")
 
         self.markets = exchange_markets
         self.market_symbols = market_symbols
@@ -90,7 +85,7 @@ class Exchange(object):
         if balance:
             db.client.balance_current.update_one(
                 {"exchange": self.exchange_id},
-                {"$set": {"balance.{}".format(coin): available for coin, available in balance.items()}},
+                {"$set": {f"balance.{coin}": available for coin, available in balance.items()}},
                 upsert=True
             )
             timestamp = datetime.datetime.now()
@@ -133,17 +128,13 @@ class ExchangeMarket(object):
         self.trading_fees = await self.exchange.client.fetch_fees(self.symbol)
 
     async def preload(self):
-        self.exchange.log("Preloading market info for {}".format(self.symbol))
+        self.exchange.log.info(f"Preloading market info for {self.symbol}")
         await self._retrieve_trading_fees()
 
     def get_market_info(self):
         market_info = self.exchange.markets_info.get(self.symbol)
         if market_info is None:
-            raise ValueError(
-                "Market {} not found in this exchange {}".format(
-                    self.symbol, self.exchange.exchange_id
-                )
-            )
+            raise ValueError(f"Market {self.symbol} not found in this exchange {self.exchange.exchange_id}")
         return market_info
 
     async def get_orders(self, limit=None):
@@ -151,11 +142,11 @@ class ExchangeMarket(object):
             try:
                 asks, bids = await self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
             except Exception as error:
-                self.exchange.log("Unsuccessful reaching market {}: {}".format(self.symbol, error))
+                self.exchange.log.info(f"Unsuccessful reaching market {self.symbol}: {error}")
                 return False, None, None
 
         if not asks or not bids:
-            self.exchange.log("No Asks or Bids found for market {}".format(self.symbol))
+            self.exchange.log.info(f"No Asks or Bids found for market {self.symbol}")
             return False, None, None
 
         best_ask = BestOrderAsk(self, self.exchange, asks)
@@ -164,7 +155,7 @@ class ExchangeMarket(object):
         return True, best_ask, best_bid
 
 
-def initiate_exchanges(exchange_ids, preload_market=None, exchange_settings=None, debug_mode=False):
+def initiate_exchanges(exchange_ids, preload_market=None, exchange_settings=None):
     exchange_settings = exchange_settings or {}
 
     # Initiate exchanges
@@ -173,7 +164,6 @@ def initiate_exchanges(exchange_ids, preload_market=None, exchange_settings=None
         exchange = Exchange(
             exchange_id,
             preload_market=preload_market,
-            debug_mode=debug_mode,
             **exchange_settings.get(exchange_id, {})
         )
         exchanges[exchange_id] = exchange

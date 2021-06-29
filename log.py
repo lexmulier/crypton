@@ -1,31 +1,38 @@
 import os
-from logging import StreamHandler, getLogger, DEBUG, INFO, ERROR, Formatter
+import logging
 from logging.handlers import TimedRotatingFileHandler
 import sys
 
 
 class CryptonLogger(object):
 
-    LOG_LEVELS = {"DEBUG": DEBUG, "INFO": INFO, "ERROR": ERROR}
+    _log_levels = {"DEBUG": logging.DEBUG, "INFO": logging.INFO, "ERROR": logging.ERROR}
+    _log_formatter = "[%(levelname)s:%(asctime)s - %(module_fields)s] %(message)s"
 
-    _log_formatter = "[%(levelname)s:%(asctime)s  DEFAULT] %(message)s"
+    def __init__(self, filename=None, level="INFO"):
+        self.filename = filename
+        self.level = level
 
-    def __init__(self):
-        self.level = "INFO"
-        self.filename = "default_log"
+        self._disable_existing_loggers()
 
-    def get_console_handler(self, formatter=None):
+    @staticmethod
+    def _disable_existing_loggers():
+        for existing_logger in logging.root.manager.loggerDict:
+            if existing_logger not in ["__main__", "exchanges", "api", "api.base"]:
+                logging.getLogger(existing_logger).setLevel(logging.CRITICAL)
+
+    def _get_console_handler(self, formatter=None):
         formatter = formatter or self._log_formatter
-        formatter = Formatter(formatter)
+        formatter = logging.Formatter(formatter)
 
-        console_handler = StreamHandler(sys.stdout)
+        console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
 
         return console_handler
 
-    def get_file_handler(self, formatter=None):
+    def _get_file_handler(self, formatter=None):
         formatter = formatter or self._log_formatter
-        formatter = Formatter(formatter)
+        formatter = logging.Formatter(formatter)
 
         filename = self.filename
         log_file = os.path.join("logs", filename + ".log")
@@ -35,23 +42,18 @@ class CryptonLogger(object):
 
         return file_handler
 
-    def get_root(self):
-        root_logger = getLogger()
+    def initiate(self):
+        logger = logging.getLogger()
 
-        self.level = self.LOG_LEVELS.get(self.level.upper(), DEBUG)
-        root_logger.setLevel(self.level)
-        root_logger.propagate = False
+        if logger.hasHandlers():
+            return
 
-        return root_logger
-
-    def get(self, name, formatter=None):
-        logger = getLogger(name)
+        self.level = self._log_levels.get(self.level.upper(), logging.INFO)
+        logger.setLevel(self.level)
+        logger.propagate = False
 
         logger.setLevel(self.level)
-        logger.addHandler(self.get_console_handler(formatter=formatter))
-        logger.addHandler(self.get_file_handler(formatter=formatter))
+        logger.addHandler(self._get_console_handler(formatter=self._log_formatter))
 
-        return logger
-
-
-logger_class = CryptonLogger()
+        if self.filename:
+            logger.addHandler(self._get_file_handler(formatter=self._log_formatter))

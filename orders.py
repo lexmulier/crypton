@@ -45,23 +45,13 @@ class OrderBase(object):
 
     def _generate_output(self):
         if self.opportunity_found:
-            return "{}({}, {}, best_price={}, price_with_fee={}, base_qty={}, quote_qty={})".format(
-                self._type,
-                self.exchange_id,
-                self.symbol,
-                self.price,
-                self.price_with_fee,
-                self.base_qty,
-                self.quote_qty,
-            )
-        return "{}({}, {}, first_price={}, first_price_with_fee={}, base_qty={})".format(
-            self._type,
-            self.exchange_id,
-            self.symbol,
-            self.first_price,
-            self.first_price_with_fee,
-            self.first_qty
-        )
+            return f"{self._type}({self.exchange_id}, {self.symbol}, " \
+                   f"best_price={self.price}, price_with_fee={self.price_with_fee}, " \
+                   f"base_qty={self.base_qty}, quote_qty={self.quote_qty})"
+
+        return f"{self._type}({self.exchange_id}, {self.symbol}, " \
+               f"first_price={self.first_price}, first_price_with_fee={self.first_price_with_fee}, " \
+               f"base_qty={self.first_qty})"
 
     def __repr__(self):
         return self._generate_output()

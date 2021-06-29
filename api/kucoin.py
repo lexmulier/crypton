@@ -84,10 +84,10 @@ class KuCoinAPI(BaseAPI):
         response = await self.post(url, data=compact_data, headers=headers)
 
         if response.get('code') != '200000':
-            self.log("Error on {} order: {}".format(side, response))
+            self.log.info("Error on {} order: {}".format(side, response))
             return False, response
 
-        self.log("Exchange order ID", _id)
+        self.log.info("Exchange order ID", _id)
 
         return True, _id
 
@@ -98,7 +98,7 @@ class KuCoinAPI(BaseAPI):
         response = await self.delete(url, headers=headers)
 
         if response.get('code') != '200000':
-            self.log("Error on cancel order: {}".format(response))
+            self.log.info("Error on cancel order: {}".format(response))
             return False
 
         return True

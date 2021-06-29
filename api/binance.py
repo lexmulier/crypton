@@ -97,10 +97,10 @@ class BinanceAPI(BaseAPI):
         response = await self.post(url, headers=self._headers)
 
         if response.get("code"):
-            self.log("Error on {} order: {}".format(side, response))
+            self.log.info("Error on {} order: {}".format(side, response))
             return False, _id
 
-        self.log("Exchange order ID", _id)
+        self.log.info("Exchange order ID", _id)
 
         return True, _id
 
@@ -115,7 +115,7 @@ class BinanceAPI(BaseAPI):
         response = await self.delete(url, headers=self._headers)
 
         if response.get("code"):
-            self.log("Error on cancel order: {}".format(response))
+            self.log.info("Error on cancel order: {}".format(response))
             return False
 
         return True
@@ -131,7 +131,7 @@ class BinanceAPI(BaseAPI):
         response = await self.get(url, headers=self._headers)
 
         if response.get("code"):
-            self.log("Error status retrieve: {}".format(response))
+            self.log.info("Error status retrieve: {}".format(response))
             return
 
         filled = response["status"] == "FILLED"
