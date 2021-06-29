@@ -12,21 +12,19 @@ class BaseAPI(object):
 
     def __init__(self, config, exchange=None, log_level=None, *args, **kwargs):
         self.config = config
+        self.exchange = exchange
 
         api_name = self.__class__.__name__
-        if exchange is not None:
-            self.exchange = exchange
+        if self.exchange is None:
             api_logger = {f'module_fields': f"EXCHANGE N/A - API {api_name}"}
         else:
-            self.exchange = None
             api_logger = {'module_fields': f"EXCHANGE {exchange.exchange_id} - API {api_name}"}
 
         if log_level is not None:
             CryptonLogger(level=log_level).initiate()
 
         self.log = logging.LoggerAdapter(logger, api_logger)
-
-        self.debug_mode = logger.level == logging.DEBUG
+        self.debug_mode = logging.root.level == logging.DEBUG
 
         self.session = None
 
@@ -34,8 +32,8 @@ class BaseAPI(object):
         if self.debug_mode:
             self.log.debug("#" * 20)
             for name, data in kwargs.items():
-                self.log.debug(name.upper(), ":")
-                self.log.debug(pprint.pformat(data))
+                self.log.debug(f"{name.upper()} :")
+                self.log.debug("\n" + pprint.pformat(data))
             self.log.debug("#" * 20)
 
     async def get(self, url, data=None, headers=None):
