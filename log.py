@@ -13,12 +13,10 @@ class CryptonLogger(object):
         self.filename = filename
         self.level = level
 
-        self._disable_existing_loggers()
-
     @staticmethod
     def _disable_existing_loggers():
         for existing_logger in logging.root.manager.loggerDict:
-            if existing_logger not in ["__main__", "exchanges", "api", "api.base"]:
+            if existing_logger not in ["__main__", "trade", "exchanges", "api", "api.base"]:
                 logging.getLogger(existing_logger).setLevel(logging.CRITICAL)
 
     def _get_console_handler(self, formatter=None):
@@ -47,6 +45,8 @@ class CryptonLogger(object):
 
         if logger.hasHandlers():
             return
+
+        self._disable_existing_loggers()
 
         self.level = self._log_levels.get(self.level.upper(), logging.INFO)
         logger.setLevel(self.level)
