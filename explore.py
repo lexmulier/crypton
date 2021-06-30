@@ -91,6 +91,9 @@ class CryptonExplore(object):
         """
         Return False if we consider the profit margin not large enough
         """
+        if not best_bid.quote_qty or not best_ask.quote_qty:
+            return False, None, None
+
         profit_amount = best_bid.quote_qty - best_ask.quote_qty
         quote_coin = best_bid.exchange_market.quote_coin.upper()
         adequate_margin_amount = profit_amount >= self.MIN_ARBITRAGE_AMOUNTS.get(quote_coin, 0.0)
