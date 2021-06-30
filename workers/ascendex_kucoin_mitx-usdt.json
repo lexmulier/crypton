@@ -10,6 +10,5 @@
       "min_profit_perc": 0.0,
       "min_profit_amount": 0.0
     }
-  },
-  "sleep_time": 0.1
+  }
 }
