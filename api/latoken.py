@@ -3,6 +3,7 @@ import hashlib
 import hmac
 
 from api.base import BaseAPI
+from utils import exception_logger
 
 
 class LATokenAPI(BaseAPI):
@@ -15,6 +16,7 @@ class LATokenAPI(BaseAPI):
         self._id_to_coin_mapping = {}
         self._coin_to_id_mapping = {}
 
+    @exception_logger()
     async def fetch_exchange_specifics(self):
         url = self._base_url + "/v2/ticker"
         response = await self.get(url)
@@ -25,6 +27,7 @@ class LATokenAPI(BaseAPI):
             self._id_to_coin_mapping[row["quoteCurrency"]] = quote
             self._coin_to_id_mapping[quote] = row["quoteCurrency"]
 
+    @exception_logger()
     async def fetch_markets(self):
         url = self._base_url + "/v2/pair"
         response = await self.get(url)
@@ -49,6 +52,7 @@ class LATokenAPI(BaseAPI):
             })
         return markets
 
+    @exception_logger()
     async def fetch_balance(self):
         endpoint = "/v2/auth/account"
         url = self._base_url + endpoint
@@ -59,6 +63,7 @@ class LATokenAPI(BaseAPI):
             for row in response if self._id_to_coin_mapping.get(row["currency"])
         }
 
+    @exception_logger()
     async def fetch_fees(self, symbol):
         base, quote = symbol.split("/")
         endpoint = f"/v2/auth/trade/fee/{base}/{quote}"
@@ -70,6 +75,7 @@ class LATokenAPI(BaseAPI):
             "maker": float(response["makerFee"])
         }
 
+    @exception_logger()
     async def fetch_order_book(self, symbol, **kwargs):
         base, quote = symbol.split("/")
         endpoint = f"/v2/book/{self._coin_to_id_mapping[base]}/{self._coin_to_id_mapping[quote]}"
@@ -80,6 +86,7 @@ class LATokenAPI(BaseAPI):
         bids = [[float(x["price"]), float(x["quantity"])] for x in response["bid"]]
         return asks, bids
 
+    @exception_logger()
     async def create_order(self, _id, symbol, qty, price, side):
         endpoint = "/v2/auth/order/place"
         url = self._base_url + endpoint
@@ -111,6 +118,7 @@ class LATokenAPI(BaseAPI):
 
         return True, exchange_order_id
 
+    @exception_logger()
     async def cancel_order(self, order_id, *args, **kwargs):
         endpoint = "/v2/auth/order/cancel"
         url = self._base_url + endpoint
@@ -125,6 +133,7 @@ class LATokenAPI(BaseAPI):
 
         return True
 
+    @exception_logger()
     async def fetch_order_status(self, order_id, **kwargs):
         endpoint = f"/v2/auth/order/getOrder/{order_id}"
         url = self._base_url + endpoint
@@ -140,6 +149,7 @@ class LATokenAPI(BaseAPI):
             "filled": filled
         }
 
+    @exception_logger()
     async def fetch_order_history(self, *args, **kwargs):
         endpoint = "/v2/auth/order"
         url = self._base_url + endpoint

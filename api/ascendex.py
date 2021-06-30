@@ -4,6 +4,7 @@ import hmac
 import datetime
 
 from api.base import BaseAPI
+from utils import exception_logger
 
 
 class AscendexAPI(BaseAPI):
@@ -22,6 +23,7 @@ class AscendexAPI(BaseAPI):
         self._secret = base64.b64decode(self.config["secret"])
         self._uuid = None
 
+    @exception_logger()
     async def fetch_markets(self):
         url = self._base_url + "/api/pro/v1/products"
         response = await self.get(url)
@@ -38,12 +40,14 @@ class AscendexAPI(BaseAPI):
         ]
         return markets
 
+    @exception_logger()
     async def fetch_balance(self):
         url = self._private_base_url + "/api/pro/v1/cash/balance"
         headers = self._get_headers("balance", self._nonce())
         response = await self.get(url, headers=headers)
         return {row["asset"]: float(row["availableBalance"]) for row in response["data"]}
 
+    @exception_logger()
     async def fetch_order_book(self, symbol, **kwargs):
         url = f"https://ascendex.com/api/pro/v1/depth?symbol={symbol}"
         response = await self.get(url)
@@ -51,6 +55,7 @@ class AscendexAPI(BaseAPI):
         bids = [[float(x[0]), float(x[1])] for x in response["data"]["data"]["bids"]]
         return asks, bids
 
+    @exception_logger()
     async def fetch_fees(self, symbol):
         if symbol.split('/')[0] in self._big_coins:
             fee = 0.001
@@ -61,12 +66,14 @@ class AscendexAPI(BaseAPI):
     async def fetch_exchange_specifics(self):
         await self._fetch_uuid()
 
+    @exception_logger()
     async def _fetch_uuid(self):
         headers = self._get_headers("info", self._nonce())
         url = self._base_url + "/api/pro/v1/info"
         response = await self.get(url, headers=headers)
         self._uuid = response["data"]["userUID"]
 
+    @exception_logger()
     async def fetch_order_status(self, order_id, **kwargs):
         headers = self._get_headers("order/status", self._nonce())
         url = f"{self._private_base_url}/api/pro/v1/cash/order/status?orderId={str(order_id)}"
@@ -86,12 +93,14 @@ class AscendexAPI(BaseAPI):
 
         return data
 
+    @exception_logger()
     async def fetch_order_history(self):
         headers = self._get_headers("order/hist/current", self._nonce())
         url = self._private_base_url + "/api/pro/v1/cash/order/hist/current"
         response = await self.get(url, headers=headers)
         print(response)
 
+    @exception_logger()
     async def create_order(self, _id, symbol, qty, price, side):
         url = self._private_base_url + "/api/pro/v1/cash/order"
         nonce = self._nonce()
@@ -122,6 +131,7 @@ class AscendexAPI(BaseAPI):
 
         return True, exchange_order_id
 
+    @exception_logger()
     async def cancel_order(self, order_id, symbol=None, *args, **kwargs):
         url = self._private_base_url + "/api/pro/v1/cash/order"
         nonce = self._nonce()

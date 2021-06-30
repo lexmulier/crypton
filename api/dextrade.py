@@ -1,6 +1,7 @@
 import requests
 
 from api.base import BaseAPI
+from utils import exception_logger
 
 
 class DexTradeAPI(BaseAPI):
@@ -13,6 +14,7 @@ class DexTradeAPI(BaseAPI):
         response = requests.post(url, json=self.config).json()
         return response["token"], response["data"]["secret"]
 
+    @exception_logger()
     async def fetch_order_book(self, symbol, limit=None):
         url = f"https://api.dex-trade.com/v1/public/book?pair={symbol.replace('/', '')}"
         response = await self.get(url)
@@ -20,6 +22,7 @@ class DexTradeAPI(BaseAPI):
         bids = [[x["rate"], x["volume"]] for x in response["data"]["buy"]]
         return asks, bids
 
+    @exception_logger()
     async def fetch_markets(self):
         url = "https://api.dex-trade.com/v1/public/symbols"
         response = await self.get(url)
@@ -34,6 +37,7 @@ class DexTradeAPI(BaseAPI):
         return markets
 
     # TODO: WIP
+    @exception_logger()
     async def fetch_balance(self):
         self.exchange.log.info("NEEDS IMPROVEMENT")
         # url = "https://api.dex-trade.com/v1/private/balances"
@@ -41,6 +45,7 @@ class DexTradeAPI(BaseAPI):
         # balance = {row["asset"]: float(row["free"]) for row in response.get("balances", {})}
         return {}
 
+    @exception_logger()
     async def fetch_fees(self, _):
         self.exchange.log.info("NEEDS IMPROVEMENT")
         return {"maker": 0.1, "taker": 0.2}

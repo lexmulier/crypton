@@ -4,6 +4,7 @@ import hashlib
 import hmac
 
 from api.base import BaseAPI
+from utils import exception_logger
 
 
 class KuCoinAPI(BaseAPI):
@@ -16,6 +17,7 @@ class KuCoinAPI(BaseAPI):
         self._trading_password = self.config["trading_password"].encode()
         self._password = self.config["password"].encode()
 
+    @exception_logger()
     async def fetch_markets(self):
         url = self._base_url + "/api/v1/symbols"
         response = await self.get(url)
@@ -33,6 +35,7 @@ class KuCoinAPI(BaseAPI):
             for x in response["data"]
         ]
 
+    @exception_logger()
     async def fetch_order_book(self, symbol, limit=None):
         url = f"{self._base_url}/api/v1/market/orderbook/level2_{limit or 20}?symbol={symbol.replace('/', '-')}"
         response = await self.get(url)
@@ -40,6 +43,7 @@ class KuCoinAPI(BaseAPI):
         bids = [[float(x[0]), float(x[1])] for x in response["data"]["bids"]]
         return asks, bids
 
+    @exception_logger()
     async def fetch_fees(self, symbol):
         endpoint = f"/api/v1/trade-fees?symbols={symbol.replace('/', '-')}"
         url = self._base_url + endpoint
@@ -50,6 +54,7 @@ class KuCoinAPI(BaseAPI):
             "maker": float(response["data"][0]["makerFeeRate"])
         }
 
+    @exception_logger()
     async def fetch_balance(self):
         endpoint = "/api/v1/accounts"
         url = self._base_url + endpoint
@@ -61,6 +66,7 @@ class KuCoinAPI(BaseAPI):
             if row["type"] == "trade"
         }
 
+    @exception_logger()
     async def create_order(self, _id, symbol, qty, price, side):
         endpoint = "/api/v1/orders"
         url = self._base_url + endpoint
@@ -89,6 +95,7 @@ class KuCoinAPI(BaseAPI):
 
         return True, _id
 
+    @exception_logger()
     async def cancel_order(self, order_id, *args, **kwargs):
         endpoint = f"/api/v1/order/client-order/{str(order_id)}"
         url = self._base_url + endpoint
@@ -101,6 +108,7 @@ class KuCoinAPI(BaseAPI):
 
         return True
 
+    @exception_logger()
     async def fetch_order_status(self, order_id, **kwargs):
         endpoint = f"/api/v1/order/client-order/{str(order_id)}"
         url = self._base_url + endpoint

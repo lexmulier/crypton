@@ -3,6 +3,7 @@ import hashlib
 import hmac
 
 from api.base import BaseAPI
+from utils import exception_logger
 
 
 class BinanceAPI(BaseAPI):
@@ -20,6 +21,7 @@ class BinanceAPI(BaseAPI):
             'X-MBX-APIKEY': self._api_key
         }
 
+    @exception_logger()
     async def fetch_markets(self):
         url = self._base_url + "/api/v3/exchangeInfo"
         response = await self.get(url)
@@ -48,6 +50,7 @@ class BinanceAPI(BaseAPI):
             })
         return markets
 
+    @exception_logger()
     async def fetch_balance(self):
         endpoint = "/api/v3/account"
         url = self._get_request_url(endpoint, timestamp=self._nonce())
@@ -57,6 +60,7 @@ class BinanceAPI(BaseAPI):
             for row in response["balances"]
         }
 
+    @exception_logger()
     async def fetch_fees(self, symbol):
         endpoint = "/sapi/v1/asset/tradeFee"
         data = {"symbol": symbol.replace("/", "")}
@@ -68,6 +72,7 @@ class BinanceAPI(BaseAPI):
             "maker": float(response[0]["makerCommission"])
         }
 
+    @exception_logger()
     async def fetch_order_book(self, symbol, **kwargs):
         endpoint = "/api/v3/depth"
         data = {"symbol": symbol.replace("/", "")}
@@ -79,6 +84,7 @@ class BinanceAPI(BaseAPI):
         bids = [[float(x[0]), float(x[1])] for x in response["bids"]]
         return asks, bids
 
+    @exception_logger()
     async def create_order(self, _id, symbol, qty, price, side):
         endpoint = "/api/v3/order"
         nonce = self._nonce()
@@ -104,6 +110,7 @@ class BinanceAPI(BaseAPI):
 
         return True, _id
 
+    @exception_logger()
     async def cancel_order(self, order_id, symbol=None, *args, **kwargs):
         endpoint = "/api/v3/order"
         data = {
@@ -120,6 +127,7 @@ class BinanceAPI(BaseAPI):
 
         return True
 
+    @exception_logger()
     async def fetch_order_status(self, order_id, symbol=None):
         endpoint = "/api/v3/order"
         data = {
@@ -143,6 +151,7 @@ class BinanceAPI(BaseAPI):
             "fee": None
         }
 
+    @exception_logger()
     async def fetch_order_history(self, symbol=None):
         endpoint = "/api/v3/allOrders"
         data = {

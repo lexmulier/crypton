@@ -8,35 +8,16 @@ def sleep_now(seconds=None):
     sleep(seconds)
 
 
-def handle_bad_requests(max_retries=3, sleep_between_retry=True, suppress=False):
+def exception_logger():
     def decorator(func):
-        def decorated_function(exchange, *args, **kwargs):
-            retries = 0
+        def decorated_function(*args, **kwargs):
 
-            while True:
-                try:
-                    return func(exchange, *args, **kwargs)
-                except ccxt.NetworkError as e:
-                    error = e
-                    retries += 1
-                except ccxt.ExchangeError as e:
-                    error = e
-                    retries += 1
-                except Exception as e:
-                    error = e
-                    retries += 1
-
-                if retries > max_retries:
-                    raise error
-
-                print(
-                    "Error {}. Retrying {}/{}".format(
-                        type(error).__name__, retries, max_retries
-                    )
-                )
-
-                if sleep_between_retry:
-                    sleep(1)
+            try:
+                return func(*args, **kwargs)
+            except Exception as error:
+                if args[0].isclass():
+                    args[0].log.exception(f"Exception for {func.__name__}: {error}")
+                raise
 
         return decorated_function
 

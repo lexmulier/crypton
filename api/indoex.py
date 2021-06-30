@@ -1,4 +1,5 @@
 from api.base import BaseAPI
+from utils import exception_logger
 
 
 class IndoExAPI(BaseAPI):
@@ -10,6 +11,7 @@ class IndoExAPI(BaseAPI):
             assert response.status == 200
             return await response.json(content_type=None)
 
+    @exception_logger()
     async def fetch_order_book(self, symbol, limit=None):
         url = f"https://api.indoex.io/depth/{symbol.replace('/', '_')}"
         response = await self.get(url)
@@ -17,6 +19,7 @@ class IndoExAPI(BaseAPI):
         bids = [[float(x["price"]), float(x["quantity"])] for x in response["bids"]]
         return asks, bids
 
+    @exception_logger()
     async def fetch_markets(self):
         url = "https://api.indoex.io/markets/"
         response = await self.get(url)
@@ -26,9 +29,11 @@ class IndoExAPI(BaseAPI):
         ]
         return markets
 
+    @exception_logger()
     async def fetch_balance(self):
         return {}
 
+    @exception_logger()
     async def fetch_fees(self, _):
         self.exchange.log.info("NEEDS IMPROVEMENT")
         return {"maker": 0.1, "taker": 0.2}
