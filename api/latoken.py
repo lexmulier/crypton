@@ -36,7 +36,7 @@ class LATokenAPI(BaseAPI):
             if not base or not quote:
                 continue
 
-            symbol = "{}/{}".format(base, quote)
+            symbol = f"{base}/{quote}"
             markets.append({
                 "symbol": symbol,
                 "base": base,
@@ -61,7 +61,7 @@ class LATokenAPI(BaseAPI):
 
     async def fetch_fees(self, symbol):
         base, quote = symbol.split("/")
-        endpoint = "/v2/auth/trade/fee/{}/{}".format(base, quote)
+        endpoint = f"/v2/auth/trade/fee/{base}/{quote}"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
         response = await self.get(url, headers=headers)
@@ -72,7 +72,7 @@ class LATokenAPI(BaseAPI):
 
     async def fetch_order_book(self, symbol, **kwargs):
         base, quote = symbol.split("/")
-        endpoint = "/v2/book/{}/{}".format(self._coin_to_id_mapping[base], self._coin_to_id_mapping[quote])
+        endpoint = f"/v2/book/{self._coin_to_id_mapping[base]}/{self._coin_to_id_mapping[quote]}"
         url = self._base_url + endpoint
         response = await self.get(url)
 
@@ -103,11 +103,11 @@ class LATokenAPI(BaseAPI):
         response = await self.post(url, data=compact_data, headers=headers)
 
         if response.get("status") != "SUCCESS":
-            self.log.info("Error on {} order: {}".format(side, response))
+            self.log.info(f"Error on {side} order: {response}")
             return False, response
 
         exchange_order_id = response["id"]
-        self.log.info("Exchange order ID", exchange_order_id)
+        self.log.info(f"Exchange order ID {exchange_order_id}")
 
         return True, exchange_order_id
 
@@ -120,13 +120,13 @@ class LATokenAPI(BaseAPI):
         response = await self.post(url, data=compact_data, headers=headers)
 
         if response.get("status") != "SUCCESS":
-            self.log.info("Error on cancel order: {}".format(response))
+            self.log.info(f"Error on cancel order: {response}")
             return False
 
         return True
 
     async def fetch_order_status(self, order_id, **kwargs):
-        endpoint = "/v2/auth/order/getOrder/{}".format(order_id)
+        endpoint = f"/v2/auth/order/getOrder/{order_id}"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
         response = await self.get(url, headers=headers)

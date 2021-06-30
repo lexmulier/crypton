@@ -142,7 +142,7 @@ class ExchangeMarket(object):
             try:
                 asks, bids = await self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
             except Exception as error:
-                self.exchange.log.info(f"Unsuccessful reaching market {self.symbol}: {error}")
+                self.exchange.log.exception(f"Unsuccessful reaching market {self.symbol}: {error}")
                 return False, None, None
 
         if not asks or not bids:

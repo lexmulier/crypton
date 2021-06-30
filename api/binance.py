@@ -37,7 +37,7 @@ class BinanceAPI(BaseAPI):
                     min_quote_qty = float(filter_row["minNotional"])
 
             markets.append({
-                "symbol": "{}/{}".format(market["baseAsset"], market["quoteAsset"]),
+                "symbol": f"{market['baseAsset']}/{market['quoteAsset']}",
                 "base": market["baseAsset"],
                 "quote": market["quoteAsset"],
                 "min_base_qty": min_base_qty,
@@ -97,10 +97,10 @@ class BinanceAPI(BaseAPI):
         response = await self.post(url, headers=self._headers)
 
         if response.get("code"):
-            self.log.info("Error on {} order: {}".format(side, response))
+            self.log.info(f"Error on {format} order: {response}")
             return False, _id
 
-        self.log.info("Exchange order ID", _id)
+        self.log.info(f"Exchange order ID {_id}")
 
         return True, _id
 
@@ -115,7 +115,7 @@ class BinanceAPI(BaseAPI):
         response = await self.delete(url, headers=self._headers)
 
         if response.get("code"):
-            self.log.info("Error on cancel order: {}".format(response))
+            self.log.info(f"Error on cancel order: {response}")
             return False
 
         return True
@@ -131,7 +131,7 @@ class BinanceAPI(BaseAPI):
         response = await self.get(url, headers=self._headers)
 
         if response.get("code"):
-            self.log.info("Error status retrieve: {}".format(response))
+            self.log.info(f"Error status retrieve: {response}")
             return
 
         filled = response["status"] == "FILLED"
@@ -159,12 +159,12 @@ class BinanceAPI(BaseAPI):
             query_string = self._get_params_for_sig(data)
 
         if timestamp is not None and query_string:
-            query_string = '{}&timestamp={}'.format(query_string, timestamp)
+            query_string = f'{query_string}&timestamp={timestamp}'
         elif timestamp is not None and not query_string:
-            query_string = 'timestamp={}'.format(timestamp)
+            query_string = f'timestamp={timestamp}'
 
         if signature:
             sig = hmac.new(self._secret, query_string.encode('utf-8'), hashlib.sha256).hexdigest()
-            return "{}{}?{}&signature={}".format(self._base_url, endpoint, query_string, sig)
+            return f"{self._base_url}{endpoint}?{query_string}&signature={sig}"
         else:
-            return "{}{}?{}".format(self._base_url, endpoint, query_string)
+            return f"{self._base_url}{endpoint}?{query_string}"

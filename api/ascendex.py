@@ -27,7 +27,7 @@ class AscendexAPI(BaseAPI):
         response = await self.get(url)
         markets = [
             {
-                "symbol": "{}/{}".format(x["baseAsset"], x["quoteAsset"]),
+                "symbol": f"{x['baseAsset']}/{x['quoteAsset']}",
                 "base": x["baseAsset"],
                 "quote": x["quoteAsset"],
                 "min_quote_qty": float(x["minNotional"]),
@@ -45,7 +45,7 @@ class AscendexAPI(BaseAPI):
         return {row["asset"]: float(row["availableBalance"]) for row in response["data"]}
 
     async def fetch_order_book(self, symbol, **kwargs):
-        url = "https://ascendex.com/api/pro/v1/depth?symbol={}".format(symbol)
+        url = f"https://ascendex.com/api/pro/v1/depth?symbol={symbol}"
         response = await self.get(url)
         asks = [[float(x[0]), float(x[1])] for x in response["data"]["data"]["asks"]]
         bids = [[float(x[0]), float(x[1])] for x in response["data"]["data"]["bids"]]
@@ -69,11 +69,11 @@ class AscendexAPI(BaseAPI):
 
     async def fetch_order_status(self, order_id, **kwargs):
         headers = self._get_headers("order/status", self._nonce())
-        url = self._private_base_url + "/api/pro/v1/cash/order/status?orderId={}".format(str(order_id))
+        url = f"{self._private_base_url}/api/pro/v1/cash/order/status?orderId={str(order_id)}"
         response = await self.get(url, headers=headers)
 
         if response.get('code', 0) != 0:
-            self.log.info("Error status retrieve: {}".format(response))
+            self.log.info(f"Error status retrieve: {response}")
             return
 
         data = {
@@ -114,11 +114,11 @@ class AscendexAPI(BaseAPI):
         response = await self.post(url, compact_data, headers=headers)
 
         if response.get('code', 0) != 0:
-            self.log.info("Error on {} order: {}".format(side, response))
+            self.log.info(f"Error on {side} order: {response}")
             return False, response
 
         exchange_order_id = response["data"]["info"]["orderId"]
-        self.log.info("Exchange order ID", exchange_order_id)
+        self.log.info(f"Exchange order ID {exchange_order_id}")
 
         return True, exchange_order_id
 
@@ -135,7 +135,7 @@ class AscendexAPI(BaseAPI):
         response = await self.delete(url, data=compact_data, headers=headers)
 
         if response.get('code', 0) != 0:
-            self.log.info("Error on cancel order: {}".format(response))
+            self.log.info(f"Error on cancel order: {response}")
             return response
 
         return response['data']['status'] == 'Ack'
@@ -145,7 +145,7 @@ class AscendexAPI(BaseAPI):
 
     @staticmethod
     def _generate_signature(nonce, endpoint, secret):
-        sig_str = "{}+{}".format(nonce, endpoint)
+        sig_str = f"{nonce}+{endpoint}"
         sig_str = bytearray(sig_str.encode("utf-8"))
         signature = hmac.new(secret, sig_str, hashlib.sha256)
         signature_b64 = base64.b64encode(signature.digest()).decode("utf-8")

@@ -21,7 +21,7 @@ class KuCoinAPI(BaseAPI):
         response = await self.get(url)
         return [
             {
-                "symbol": "{}/{}".format(x["baseCurrency"], x["quoteCurrency"]),
+                "symbol": f"{x['baseCurrency']}/{x['quoteCurrency']}",
                 "base": x["baseCurrency"],
                 "quote": x["quoteCurrency"],
                 "min_base_qty": float(x["baseMinSize"]),
@@ -34,16 +34,14 @@ class KuCoinAPI(BaseAPI):
         ]
 
     async def fetch_order_book(self, symbol, limit=None):
-        url = self._base_url + "/api/v1/market/orderbook/level2_{}?symbol={}".format(
-            limit or 20, symbol.replace("/", "-")
-        )
+        url = f"{self._base_url}/api/v1/market/orderbook/level2_{limit or 20}?symbol={symbol.replace('/', '-')}"
         response = await self.get(url)
         asks = [[float(x[0]), float(x[1])] for x in response["data"]["asks"]]
         bids = [[float(x[0]), float(x[1])] for x in response["data"]["bids"]]
         return asks, bids
 
     async def fetch_fees(self, symbol):
-        endpoint = "/api/v1/trade-fees?symbols={}".format(symbol.replace("/", "-"))
+        endpoint = f"/api/v1/trade-fees?symbols={symbol.replace('/', '-')}"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
         response = await self.get(url, headers=headers)
@@ -84,27 +82,27 @@ class KuCoinAPI(BaseAPI):
         response = await self.post(url, data=compact_data, headers=headers)
 
         if response.get('code') != '200000':
-            self.log.info("Error on {} order: {}".format(side, response))
+            self.log.info(f"Error on {side} order: {response}")
             return False, response
 
-        self.log.info("Exchange order ID", _id)
+        self.log.info(f"Exchange order ID {_id}")
 
         return True, _id
 
     async def cancel_order(self, order_id, *args, **kwargs):
-        endpoint = "/api/v1/order/client-order/{}".format(str(order_id))
+        endpoint = f"/api/v1/order/client-order/{str(order_id)}"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint, method="DELETE")
         response = await self.delete(url, headers=headers)
 
         if response.get('code') != '200000':
-            self.log.info("Error on cancel order: {}".format(response))
+            self.log.info(f"Error on cancel order: {response}")
             return False
 
         return True
 
     async def fetch_order_status(self, order_id, **kwargs):
-        endpoint = "/api/v1/order/client-order/{}".format(str(order_id))
+        endpoint = f"/api/v1/order/client-order/{str(order_id)}"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
         response = await self.get(url, headers=headers)
@@ -129,12 +127,12 @@ class KuCoinAPI(BaseAPI):
         data_json = ""
         if method == "GET" and data:
             query_string = self._get_params_for_sig(data)
-            endpoint = "{}?{}".format(endpoint, query_string)
+            endpoint = f"{endpoint}?{query_string}"
         elif method == "POST" and compact_data:
             data_json = compact_data
         elif method == "POST" and data:
             data_json = self._compact_json_dict(data)
-        sig_str = ("{}{}{}{}".format(nonce, method.upper(), endpoint, data_json)).encode('utf-8')
+        sig_str = f"{nonce}{method.upper()}{endpoint}{data_json}".encode('utf-8')
         m = hmac.new(self._secret, sig_str, hashlib.sha256)
         return base64.b64encode(m.digest()).decode()
 

@@ -14,7 +14,7 @@ class DexTradeAPI(BaseAPI):
         return response["token"], response["data"]["secret"]
 
     async def fetch_order_book(self, symbol, limit=None):
-        url = "https://api.dex-trade.com/v1/public/book?pair={}".format(symbol.replace("/", ""))
+        url = f"https://api.dex-trade.com/v1/public/book?pair={symbol.replace('/', '')}"
         response = await self.get(url)
         asks = [[x["rate"], x["volume"]] for x in response["data"]["sell"]]
         bids = [[x["rate"], x["volume"]] for x in response["data"]["buy"]]
@@ -25,7 +25,7 @@ class DexTradeAPI(BaseAPI):
         response = await self.get(url)
         markets = [
             {
-                "symbol": "{}/{}".format(x["base"], x["quote"]),
+                "symbol": f"{x['base']}/{x['quote']}",
                 "base": x["base"],
                 "quote": x["quote"]
             }

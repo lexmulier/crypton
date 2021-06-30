@@ -11,7 +11,7 @@ class IndoExAPI(BaseAPI):
             return await response.json(content_type=None)
 
     async def fetch_order_book(self, symbol, limit=None):
-        url = "https://api.indoex.io/depth/{}".format(symbol.replace("/", "_"))
+        url = f"https://api.indoex.io/depth/{symbol.replace('/', '_')}"
         response = await self.get(url)
         asks = [[float(x["price"]), float(x["quantity"])] for x in response["asks"]]
         bids = [[float(x["price"]), float(x["quantity"])] for x in response["bids"]]
@@ -21,7 +21,7 @@ class IndoExAPI(BaseAPI):
         url = "https://api.indoex.io/markets/"
         response = await self.get(url)
         markets = [
-            {"symbol": "{}/{}".format(x["base"], x["quote"]), "base": x["base"], "quote": x["quote"]}
+            {"symbol": f"{x['base']}/{x['quote']}", "base": x["base"], "quote": x["quote"]}
             for x in response["combinations"]
         ]
         return markets
