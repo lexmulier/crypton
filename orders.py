@@ -16,6 +16,7 @@ class OrderBase(object):
         self.exchange_id = exchange.exchange_id
 
         self.opportunity_found = False
+        self.fee_overwrite = None
 
         self.price = 0.0
         self.price_with_fee = 0.0
@@ -124,6 +125,13 @@ class OrderBase(object):
             self.actual_base_qty = round(
                 result["base_quantity"], self.exchange_market.base_precision
             )
+
+            if result["fee"] is None:
+                self.actual_price_with_fee = self._calculate_price_with_fee(result["price"])
+            else:
+                self.actual_price_with_fee = round(
+                    result["fee"] / result["base_quantity"], self.exchange_market.price_precision
+                )
             self.actual_quote_qty = round(
                 self.actual_base_qty * self.actual_price_with_fee, self.exchange_market.quote_precision
             )
@@ -132,20 +140,10 @@ class OrderBase(object):
             if result["filled"] is True:
                 self.status = self.STATUS_FILLED
 
-            if result["fee"] is None:
-                self.actual_price_with_fee = self._calculate_price_with_fee(result["price"])
-            else:
-                self.actual_price_with_fee = round(
-                    result["fee"] / result["base_quantity"], self.exchange_market.price_precision
-                )
-
     def _compare_price_opposite_exchange(self, *args):
         raise NotImplementedError()
 
     def _opportunity(self, price_with_fee_opposite_exchange, max_quote_qty=None, max_base_qty=None):
-        if max_base_qty is None and max_quote_qty is None:
-            raise ValueError("No quantity provided in either base or quote currency")
-
         self.base_qty = 0.0
         self.quote_qty = 0.0
 
@@ -216,8 +214,11 @@ class BestOrderBid(OrderBase):
     def order_bids(bids):
         return sorted(bids, key=lambda bid: bid[0], reverse=True)
 
-    def _calculate_price_with_fee(self, price, fee=None):
-        fee = fee if fee is not None else self.exchange_market.trading_fees[self._taker_or_maker]
+    def _calculate_price_with_fee(self, price):
+        if self.fee_overwrite is not None:
+            fee = self.fee_overwrite
+        else:
+            fee = self.exchange_market.trading_fees[self._taker_or_maker]
         return round((1.0 - fee) * price, self.exchange_market.price_precision)
 
     @staticmethod
@@ -244,8 +245,11 @@ class BestOrderAsk(OrderBase):
     def order_asks(asks):
         return sorted(asks, key=lambda ask: ask[0])
 
-    def _calculate_price_with_fee(self, price, fee=None):
-        fee = fee if fee is not None else self.exchange_market.trading_fees[self._taker_or_maker]
+    def _calculate_price_with_fee(self, price):
+        if self.fee_overwrite is not None:
+            fee = self.fee_overwrite
+        else:
+            fee = self.exchange_market.trading_fees[self._taker_or_maker]
         return round((1.0 + fee) * price, self.exchange_market.price_precision)
 
     @staticmethod
