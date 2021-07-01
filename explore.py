@@ -97,7 +97,6 @@ PUBLIC_ONLY_EXCHANGES = [
     'poloniex',
     'probit',
     'qtrade',
-    'rightbtc',
     'southxchange',
     'stex',
     'therock',
