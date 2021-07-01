@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import asyncio
 import itertools
@@ -10,7 +11,7 @@ from models import db
 
 logger = logging.getLogger(__name__)
 
-PUBLIC_ONLY_EXCHANGES = [
+ALL_EXCHANGES = [
     'aax',
     'aofex',
     'bequant',
@@ -109,11 +110,19 @@ PUBLIC_ONLY_EXCHANGES = [
     'xena',
     'zaif',
     'zb',
+    'liquid',
+    'timex',
+    'ascendex',
+    'latoken',
+    'kucoin',
+    'kraken',
+    'binance',
+    'dextrade',
+    'indoex'
 ]
 
 
 class CryptonExplore(object):
-
     MIN_ARBITRAGE_PERCENTAGE = 0.5
     MIN_ARBITRAGE_AMOUNTS = {
         "USDT": 0.05,
@@ -262,8 +271,20 @@ class CryptonExplore(object):
                     self._check_arbitrage(exchanges, market)
 
 
+def get_exchanges_list(exchanges):
+    if not exchanges:
+        return ALL_EXCHANGES
+    return [x for x in exchanges if x in ALL_EXCHANGES]
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-e", "--exchanges", nargs='*', help="Specify exchanges")
+    args = parser.parse_args()
+
+    exchange_id_list = get_exchanges_list(args.exchanges)
+
     CryptonLogger(filename="explorer", level="INFO").initiate()
 
-    bot = CryptonExplore(list(EXCHANGES.keys()) + PUBLIC_ONLY_EXCHANGES)
+    bot = CryptonExplore(exchange_id_list)
     bot.start()
