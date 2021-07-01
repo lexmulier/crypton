@@ -9,19 +9,14 @@ from api.binance import BinanceAPI
 API_CLASS_MAPPING = {
     "ascendex": AscendexAPI,
     "binance": BinanceAPI,
-    "liquid": CcxtAPI,
-    "timex": CcxtAPI,
     "latoken": LATokenAPI,
     "kucoin": KuCoinAPI,
-    "kraken": CcxtAPI,
     "dextrade": DexTradeAPI,
     "indoex": IndoExAPI,
 }
 
 
 def get_client(exchange):
-    if exchange.exchange_id not in API_CLASS_MAPPING:
-        raise ValueError(f"API wrapper config for {exchange.exchange_id} does not exist")
-
-    wrapper = API_CLASS_MAPPING[exchange.exchange_id](exchange.api_config, exchange=exchange)
+    api_class = API_CLASS_MAPPING.get(exchange.exchange_id, CcxtAPI)
+    wrapper = api_class(exchange.api_config, exchange=exchange)
     return wrapper

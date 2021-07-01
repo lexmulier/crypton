@@ -10,6 +10,110 @@ from models import db
 
 logger = logging.getLogger(__name__)
 
+PUBLIC_ONLY_EXCHANGES = [
+    'aax',
+    'aofex',
+    'bequant',
+    'bibox',
+    'bigone',
+    'binancecoinm',
+    'binanceus',
+    'binanceusdm',
+    'bit2c',
+    'bitbank',
+    'bitbay',
+    'bitcoincom',
+    'bitfinex',
+    'bitfinex2',
+    'bitflyer',
+    'bitforex',
+    'bitget',
+    'bithumb',
+    'bitkk',
+    'bitmart',
+    'bitmex',
+    'bitpanda',
+    'bitso',
+    'bitstamp',
+    'bitstamp1',
+    'bittrex',
+    'bitvavo',
+    'bitz',
+    'bl3p',
+    'btcalpha',
+    'btcbox',
+    'btcmarkets',
+    'btctradeua',
+    'btcturk',
+    'bw',
+    'bybit',
+    'bytetrade',
+    'cdax',
+    'cex',
+    'coinbase',
+    'coinbaseprime',
+    'coinbasepro',
+    'coincheck',
+    'coinex',
+    'coinfalcon',
+    'coinfloor',
+    'coinmate',
+    'coinone',
+    'coinspot',
+    'crex24',
+    'currencycom',
+    'delta',
+    'deribit',
+    'digifinex',
+    'equos',
+    'exmo',
+    'exx',
+    'ftx',
+    'gateio',
+    'gemini',
+    'gopax',
+    'hbtc',
+    'hitbtc',
+    'hollaex',
+    'huobijp',
+    'huobipro',
+    'idex',
+    'independentreserve',
+    'indodax',
+    'itbit',
+    'kuna',
+    'lbank',
+    'luno',
+    'lykke',
+    'mercado',
+    'mixcoins',
+    'ndax',
+    'novadax',
+    'oceanex',
+    'okcoin',
+    'okex',
+    'okex5',
+    'paymium',
+    'phemex',
+    'poloniex',
+    'probit',
+    'qtrade',
+    'rightbtc',
+    'southxchange',
+    'stex',
+    'therock',
+    'tidex',
+    'timex',
+    'upbit',
+    'vcc',
+    'wavesexchange',
+    'whitebit',
+    'xena',
+    'yobit',
+    'zaif',
+    'zb',
+]
+
 
 class CryptonExplore(object):
 
@@ -22,7 +126,7 @@ class CryptonExplore(object):
     DEFAULT_FEE = 0.002
 
     def __init__(self, exchange_ids):
-        self.exchanges = initiate_exchanges(exchange_ids)
+        self.exchanges = initiate_exchanges(exchange_ids, auth_endpoints=False)
         self.log = logging.LoggerAdapter(logger, {"module_fields": "EXPLORER"})
 
     @property
@@ -164,5 +268,5 @@ class CryptonExplore(object):
 if __name__ == "__main__":
     CryptonLogger(filename="explorer", level="INFO").initiate()
 
-    bot = CryptonExplore(EXCHANGES.keys())
+    bot = CryptonExplore(list(EXCHANGES.keys()) + PUBLIC_ONLY_EXCHANGES)
     bot.start()

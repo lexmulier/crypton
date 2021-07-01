@@ -14,25 +14,25 @@ logger = logging.getLogger(__name__)
 
 class Exchange(object):
 
-    def __init__(self,
-                 exchange_id,
-                 preload_market=None,
-                 layered_quote_qty_calc=True,
-                 min_profit_perc=None,
-                 min_profit_amount=None,
-                 log_level=None,
-                 ):
-
-        if exchange_id not in EXCHANGES:
-            raise ValueError(f"Exchange {self.exchange_id} does not exist according to configuration!")
+    def __init__(
+            self,
+            exchange_id,
+            preload_market=None,
+            layered_quote_qty_calc=True,
+            auth_endpoints=True,
+            min_profit_perc=None,
+            min_profit_amount=None,
+            log_level=None,
+    ):
 
         self.exchange_id = exchange_id
-        self.api_config = EXCHANGES[exchange_id]
+        self.api_config = EXCHANGES.get(exchange_id, {})
         self.preload_market = preload_market
 
         self.min_profit_perc = min_profit_perc
         self.min_profit_amount = min_profit_amount
         self.layered_quote_qty_calc = layered_quote_qty_calc
+        self.auth_endpoints = auth_endpoints
 
         self.markets = None
         self.market_symbols = None
@@ -69,7 +69,9 @@ class Exchange(object):
         async with self.session_manager:
             await self._fetch_exchange_specifics()
             await self._initiate_markets()
-            await self._retrieve_balance()
+
+            if self.auth_endpoints:
+                await self._retrieve_balance()
 
             if self.preload_market:
                 await self.markets[self.preload_market].preload()
@@ -102,7 +104,6 @@ class Exchange(object):
 
 
 class ExchangeMarket(object):
-
     _default_min_base_qty = 0.0
     _default_min_quote_qty = 0.0
 
@@ -155,7 +156,13 @@ class ExchangeMarket(object):
         return True, best_ask, best_bid
 
 
-def initiate_exchanges(exchange_ids, preload_market=None, exchange_settings=None, log_level=None):
+def initiate_exchanges(
+        exchange_ids,
+        preload_market=None,
+        exchange_settings=None,
+        auth_endpoints=True,
+        log_level=None
+):
     exchange_settings = exchange_settings or {}
 
     # Initiate exchanges
@@ -164,6 +171,7 @@ def initiate_exchanges(exchange_ids, preload_market=None, exchange_settings=None
         exchange = Exchange(
             exchange_id,
             preload_market=preload_market,
+            auth_endpoints=auth_endpoints,
             log_level=log_level,
             **exchange_settings.get(exchange_id, {})
         )
