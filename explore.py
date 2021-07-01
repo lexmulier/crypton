@@ -107,7 +107,6 @@ PUBLIC_ONLY_EXCHANGES = [
     'wavesexchange',
     'whitebit',
     'xena',
-    'yobit',
     'zaif',
     'zb',
 ]
