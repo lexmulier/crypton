@@ -29,7 +29,6 @@ PUBLIC_ONLY_EXCHANGES = [
     'bitforex',
     'bitget',
     'bithumb',
-    'bitkk',
     'bitmart',
     'bitmex',
     'bitpanda',
