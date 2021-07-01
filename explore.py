@@ -50,7 +50,6 @@ ALL_EXCHANGES = [
     'bytetrade',
     'cdax',
     'cex',
-    'coinbase',
     'coinbaseprime',
     'coinbasepro',
     'coincheck',
@@ -60,7 +59,7 @@ ALL_EXCHANGES = [
     'coinmate',
     'coinone',
     'coinspot',
-    'crex24',
+    #'crex24',
     'currencycom',
     'delta',
     'deribit',
@@ -282,9 +281,9 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--exchanges", nargs='*', help="Specify exchanges")
     args = parser.parse_args()
 
-    exchange_id_list = get_exchanges_list(args.exchanges)
-
     CryptonLogger(filename="explorer", level="INFO").initiate()
+
+    exchange_id_list = get_exchanges_list(args.exchanges)
 
     bot = CryptonExplore(exchange_id_list)
     bot.start()
