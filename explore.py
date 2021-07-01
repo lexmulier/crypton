@@ -304,12 +304,13 @@ def get_exchanges_list(exchanges):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", "--exchanges", nargs='*', help="Specify exchanges")
-    parser.add_argument("-r", "--maxrank", type=int, default=500, help="Maximum rank")
+    parser.add_argument("-b", "--maxbaserank", type=int, default=500, help="Maximum base coin rank")
+    parser.add_argument("-q", "--maxquoterank", type=int, default=50, help="Maximum quote coin rank")
     args = parser.parse_args()
 
     CryptonLogger(filename="explorer", level="INFO").initiate()
 
     exchange_id_list = get_exchanges_list(args.exchanges)
 
-    bot = CryptonExplore(exchange_id_list, maximum_rank=args.maxrank)
+    bot = CryptonExplore(exchange_id_list, max_base_rank=args.maxbaserank, max_quote_rank=args.maxquoterank)
     bot.start()
