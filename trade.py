@@ -26,6 +26,8 @@ class CryptonTrade(object):
             exchanges,
             min_base_qty=None,
             min_quote_qty=None,
+            base_precision=None,
+            quote_precision=None,
             market_pair_id=None,
             simulate=False,
             log_level=None
@@ -37,6 +39,8 @@ class CryptonTrade(object):
 
         self.min_base_qty = min_base_qty
         self.min_quote_qty = min_quote_qty
+        self.base_precision = base_precision
+        self.quote_precision = quote_precision
 
         self.market_pair_id = market_pair_id or "_".join([*sorted(exchanges), market]).upper()
 
@@ -104,17 +108,18 @@ class CryptonTrade(object):
         self.log.info(self.ask)
         self.log.info(self.bid)
 
-        # Now ask and bid are known, set the minimal quantity from the exchange if not forced by user
+        # Now ask and bid are known, set the minimal quantity and precision from the exchange if not forced by user
+        ask_exchange_market = self.ask.exchange.markets[self.market]
+        bid_exchange_market = self.bid.exchange.markets[self.market]
         if self.min_base_qty is None:
-            self.min_base_qty = max(
-                self.bid.exchange.markets[self.market].min_base_qty,
-                self.ask.exchange.markets[self.market].min_base_qty
-            )
+            self.min_base_qty = max(ask_exchange_market.min_base_qty, bid_exchange_market.min_base_qty)
         if self.min_quote_qty is None:
-            self.min_quote_qty = max(
-                self.bid.exchange.markets[self.market].min_quote_qty,
-                self.ask.exchange.markets[self.market].min_quote_qty
-            )
+            self.min_quote_qty = max(ask_exchange_market.min_quote_qty, bid_exchange_market.min_quote_qty)
+
+        if self.base_precision is None:
+            self.base_precision = min(ask_exchange_market.base_precision, bid_exchange_market.base_precision)
+        if self.quote_precision is None:
+            self.quote_precision = min(ask_exchange_market.quote_precision, bid_exchange_market.quote_precision)
 
     def fetch_orders(self):
         loop = asyncio.get_event_loop()
@@ -143,24 +148,13 @@ class CryptonTrade(object):
 
         elif self.bid.base_qty > self.ask.base_qty:
             # The ask exchange is dictating the maximum amount, recalculating the bid exchange using the new qty
-            self.log.info("Taking order quantity from ask quantity: {self.ask.base_qty} {self.base_coin}")
+            self.log.info(f"Taking order quantity from ask quantity: {self.ask.base_qty} {self.base_coin}")
             self.bid.opportunity(self.ask.first_price_with_fee, max_base_qty=self.ask.base_qty)
 
-        # TODO: Check why there is difference:
-        """
-        TRADE 60d5d0ca3e35a27ae850abbd: ASK(kucoin, MITX/USDT, first_price=0.0382, first_price_with_fee=0.0383, base_qty=10.8329)
-        TRADE 60d5d0ca3e35a27ae850abbd: BID(ascendex, MITX/USDT, first_price=0.038486, first_price_with_fee=0.038409, base_qty=941.0)
-        TRADE 60d5d0ca3e35a27ae850abbd: 1296.0 MITX on BID exchange ascendex | 131.05260686 USDT on ASK exchange kucoin
-        TRADE 60d5d0ca3e35a27ae850abbd: Taking order quantity from ask quantity: 711.3209 MITX
-        TRADE 60d5d0ca3e35a27ae850abbd: WHY IS THIS DIFFERENT? 711.3209 711.0
-        """
-        # # This should always be equal, the base qty never differs, the quote qty does (due to price difference)
-        # if self.ask.base_qty != self.bid.base_qty:
-        #     self.notify("WHY IS THIS DIFFERENT?", self.ask.base_qty, self.bid.base_qty)
-        #     raise ValueError("Stopping because difference in base qty")
-
-        self.bid_base_order_qty = self.bid.base_qty  # The BID exchange is where we care about the base qty
-        self.ask_quote_order_qty = self.ask.quote_qty  # The ASK exchange is where we care about the quote qty
+        # The BID exchange is where we care about the base qty
+        self.bid_base_order_qty = round(self.bid.base_qty, self.base_precision)
+        # The ASK exchange is where we care about the quote qty
+        self.ask_quote_order_qty = round(self.ask.quote_qty, self.quote_precision)
 
     def get_exchange_balances(self):
         # How much volume can I buy with my payment currency
@@ -421,6 +415,8 @@ def activate_crypton(settings, simulate=False):
             market_pair_id=market_pair_id,
             min_base_qty=settings.get("min_base_qty"),
             min_quote_qty=settings.get("min_quote_qty"),
+            base_precision=settings.get("base_precision"),
+            quote_precision=settings.get("quote_precision"),
             simulate=simulate
         )
         trade.start()

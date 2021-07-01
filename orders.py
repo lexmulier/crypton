@@ -196,8 +196,6 @@ class OrderBase(object):
         # Round all numbers
         self.price = round(self.price, self.exchange_market.price_precision)
         self.price_with_fee = round(self.price_with_fee, self.exchange_market.price_precision)
-        self.base_qty = round(self.base_qty, self.exchange_market.base_precision)
-        self.quote_qty = round(self.quote_qty, self.exchange_market.quote_precision)
 
 
 class BestOrderBid(OrderBase):
