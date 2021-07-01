@@ -62,7 +62,7 @@ ALL_EXCHANGES = [
     #'crex24',
     'currencycom',
     'delta',
-    'deribit',
+    #'deribit',  # System maintenance
     'digifinex',
     'equos',
     'exmo',
