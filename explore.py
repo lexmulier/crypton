@@ -4,7 +4,7 @@ import asyncio
 import itertools
 import logging
 
-from config import *
+from api.coinmarketcap import CoinMarketCapAPI
 from exchanges import initiate_exchanges
 from log import CryptonLogger
 from models import db
@@ -130,13 +130,38 @@ class CryptonExplore(object):
     }
     DEFAULT_FEE = 0.002
 
-    def __init__(self, exchange_ids):
+    def __init__(self, exchange_ids, max_base_rank=500, max_quote_rank=50):
         self.exchanges = initiate_exchanges(exchange_ids, auth_endpoints=False)
+
+        self.max_base_rank = max_base_rank
+        self.max_quote_rank = max_quote_rank
+
         self.log = logging.LoggerAdapter(logger, {"module_fields": "EXPLORER"})
+        self.coin_data = CoinMarketCapAPI().fetch_coin_info()
 
     @property
     def markets(self):
-        return set([market for exchange in self.exchanges.values() for market in exchange.market_symbols])
+        all_markets = set([market for exchange in self.exchanges.values() for market in exchange.market_symbols])
+
+        markets = []
+        for market in all_markets:
+            if "/" not in market:
+                continue
+
+            base, quote = market.split("/")
+
+            if base not in self.coin_data or quote not in self.coin_data:
+                continue
+
+            if self.coin_data[base]["rank"] > self.max_base_rank:
+                continue
+
+            if self.coin_data[quote]["rank"] > self.max_quote_rank:
+                continue
+
+            markets.append(market)
+
+        return markets
 
     @staticmethod
     def _fetch_orders(exchanges, market):
@@ -279,11 +304,12 @@ def get_exchanges_list(exchanges):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", "--exchanges", nargs='*', help="Specify exchanges")
+    parser.add_argument("-r", "--maxrank", type=int, default=500, help="Maximum rank")
     args = parser.parse_args()
 
     CryptonLogger(filename="explorer", level="INFO").initiate()
 
     exchange_id_list = get_exchanges_list(args.exchanges)
 
-    bot = CryptonExplore(exchange_id_list)
+    bot = CryptonExplore(exchange_id_list, maximum_rank=args.maxrank)
     bot.start()
