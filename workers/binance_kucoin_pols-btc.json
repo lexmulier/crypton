@@ -2,7 +2,7 @@
   "market": "POLS/BTC",
   "exchanges": ["binance", "kucoin"],
   "settings": {
-    "ascendex": {
+    "binance": {
       "min_profit_perc": 0.2,
       "min_profit_amount": 0.0
     },
