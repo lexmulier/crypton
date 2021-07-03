@@ -8,6 +8,10 @@ def sleep_now(seconds=None):
     sleep(seconds)
 
 
+def round_and_format(value, precision):
+    return format(round(value, precision), f'.{precision}f')
+
+
 def exception_logger():
     def decorator(func):
         def decorated_function(*args, **kwargs):
@@ -22,3 +26,4 @@ def exception_logger():
         return decorated_function
 
     return decorator
+
