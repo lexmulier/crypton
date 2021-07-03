@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class CryptonTrade(object):
 
     _min_profit_perc = 0.01
-    _min_profit_amount = 0.01
+    _min_profit_amount = 0.0
 
     def __init__(
             self,

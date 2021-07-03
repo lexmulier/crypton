@@ -110,7 +110,7 @@ class LATokenAPI(BaseAPI):
         response = await self.post(url, data=compact_data, headers=headers)
 
         if response.get("status") != "SUCCESS":
-            self.log.info(f"Error on {side} order: {response}")
+            self.log.exception(f"Error on {side} order: {response}")
             return False, response
 
         exchange_order_id = response["id"]
@@ -128,7 +128,7 @@ class LATokenAPI(BaseAPI):
         response = await self.post(url, data=compact_data, headers=headers)
 
         if response.get("status") != "SUCCESS":
-            self.log.info(f"Error on cancel order: {response}")
+            self.log.exception(f"Error on cancel order: {response}")
             return False
 
         return True
