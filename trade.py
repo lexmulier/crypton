@@ -152,7 +152,8 @@ class CryptonTrade(object):
             self.bid.opportunity(self.ask.first_price_with_fee, max_base_qty=self.ask.base_qty)
 
         # The BID exchange is where we care about the base qty
-        self.bid_base_order_qty = round(self.bid.base_qty, self.base_precision)
+        # TODO: Shouldn't be necessary
+        self.bid_base_order_qty = round(self.bid.base_qty * 0.9995, self.base_precision)
         # The ASK exchange is where we care about the quote qty
         self.ask_quote_order_qty = round(self.ask.quote_qty, self.quote_precision)
 
@@ -235,8 +236,8 @@ class CryptonTrade(object):
         self.log.info(self.bid)
 
         # Notify about the profit
-        self.log.info(f"Profit margin: {round(profit_perc, 8)}% | "
-                      f"Profit in {self.quote_coin}: {round(profit_amount, 8)}")
+        self.log.info(f"Profit margin: {round_and_format(profit_perc, 8)}% | "
+                      f"Profit in {self.quote_coin}: {round_and_format(profit_amount, 8)}")
 
         self.expected_profit_perc = profit_perc
         self.expected_profit_amount = profit_amount

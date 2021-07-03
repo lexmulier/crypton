@@ -8,13 +8,19 @@ logging.getLogger("ccxt").setLevel(logging.CRITICAL)
 
 
 class CcxtAPI(BaseAPI):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, exchange_id=None, *args, **kwargs):
         super(CcxtAPI, self).__init__(*args, **kwargs)
+
+        if self.exchange:
+            self.exchange_id = self.exchange.exchange_id
+        else:
+            self.exchange_id = exchange_id
+
         self.session = None
 
     @property
     def client(self):
-        exchange_class = getattr(ccxt, self.exchange.exchange_id)
+        exchange_class = getattr(ccxt, self.exchange_id)
         self.config["session"] = self.session
         exchange = exchange_class(self.config)
         return exchange
