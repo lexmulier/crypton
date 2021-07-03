@@ -13,15 +13,15 @@ async def fetch_and_update_balance(exchange_id, config):
     client = client_class(config, exchange_id=exchange_id)
 
     async with SessionManager(client):
-        # try:
-        balance = await client.fetch_balance()
-        # except Exception as error:
-        #     print(error)
-        #     return
+        try:
+            balance = await client.fetch_balance()
+        except Exception as error:
+            print(error)
+            return
 
     if not balance:
         return
-
+    
     db.client.balance_current.update_one(
         {"exchange": exchange_id},
         {"$set": {f"balance.{coin}": available for coin, available in balance.items()}},

@@ -8,7 +8,7 @@ logging.getLogger("ccxt").setLevel(logging.CRITICAL)
 
 
 class CcxtAPI(BaseAPI):
-    def __init__(self, exchange_id=None, *args, **kwargs):
+    def __init__(self, *args, exchange_id=None, **kwargs):
         super(CcxtAPI, self).__init__(*args, **kwargs)
 
         if self.exchange:
