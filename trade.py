@@ -63,6 +63,8 @@ class CryptonTrade(object):
         self.actual_profit_perc = None
         self.actual_profit_amount = None
 
+        self.ordering = False
+
     @output_logs()
     def start(self):
         self.notifier.add(logger, StartProcess(self.trade_id))
@@ -233,6 +235,8 @@ class CryptonTrade(object):
         return (adequate_margin_perc or adequate_margin_amount), profit_perc, profit_amount
 
     def initiate_orders(self):
+        self.ordering = True
+
         # Format prices and qty
         ask_price = rounder(self.ask.price, self.ask.exchange_market.price_precision, strip=False)
         bid_price = rounder(self.bid.price, self.bid.exchange_market.price_precision, strip=False)

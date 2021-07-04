@@ -10,20 +10,17 @@ logger = logging.getLogger(__name__)
 
 class BaseAPI(object):
 
-    def __init__(self, config, exchange=None, notifier=None, *args, **kwargs):
+    def __init__(self, config, exchange=None, *args, **kwargs):
         self.config = config
 
         if exchange:
             self.exchange = exchange
             self.exchange_id = exchange.exchange_id
+            self.notifier = exchange.notifier
         else:
             self.exchange = None
-            self.exchange_id = "NOEXCHANGEID"
-
-        if notifier is None:
+            self.exchange_id = "NO-EXCHANGE-ID"
             self.notifier = Notify(level="info").initiate()
-        else:
-            self.notifier = notifier
 
         self.debug_mode = logging.root.level == logging.DEBUG
 

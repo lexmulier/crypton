@@ -10,10 +10,10 @@ def output_logs():
 
             try:
                 output = func(*args, **kwargs)
-                args[0].notifier.output()
+                args[0].notifier.output(to_file=args[0].ordering)
                 return output
             except Exception:
-                args[0].notifier.output()
+                args[0].notifier.output(to_file=True)
                 raise
 
         return decorated_function
@@ -40,8 +40,9 @@ class Notify(object):
         else:
             self.messages.append((logger, message, log_level))
 
-    def output(self):
+    def output(self, to_file=False):
         for logger, message, log_level in self.messages:
+            log_level = logging.ERROR if to_file else log_level
             self.send(logger, message, log_level=log_level)
 
         self.messages = []
