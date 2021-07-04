@@ -1,3 +1,6 @@
+from utils import round_down
+
+
 class OrderBase(object):
     _type = None
     _taker_or_maker = None
@@ -47,12 +50,12 @@ class OrderBase(object):
     def _generate_output(self):
         if self.opportunity_found:
             return f"{self._type}({self.exchange_id}, {self.symbol}, " \
-                   f"best_price={self.price:.10f}, price_with_fee={self.price_with_fee:.10f}, " \
-                   f"base_qty={self.base_qty:.10f}, quote_qty={self.quote_qty:.10f})"
+                   f"best_price={self.price:.15f}, price_with_fee={self.price_with_fee:.15f}, " \
+                   f"base_qty={self.base_qty:.15f}, quote_qty={self.quote_qty:.15f})"
 
         return f"{self._type}({self.exchange_id}, {self.symbol}, " \
-               f"first_price={self.first_price:.10f}, first_price_with_fee={self.first_price_with_fee:.10f}, " \
-               f"base_qty={self.first_qty:.10f})"
+               f"first_price={self.first_price:.15f}, first_price_with_fee={self.first_price_with_fee:.15f}, " \
+               f"base_qty={self.first_qty:.15f})"
 
     def __repr__(self):
         return self._generate_output()
@@ -119,12 +122,8 @@ class OrderBase(object):
             if not result or "price" not in result:
                 return
 
-            self.actual_price = round(
-                result["price"], self.exchange_market.price_precision
-            )
-            self.actual_base_qty = round(
-                result["base_quantity"], self.exchange_market.base_precision
-            )
+            self.actual_price = result["price"]
+            self.actual_base_qty = result["base_quantity"]
 
             if result["fee"] is None:
                 self.actual_price_with_fee = self._calculate_price_with_fee(result["price"])
@@ -194,8 +193,8 @@ class OrderBase(object):
                     break
 
         # Round all numbers
-        self.price = round(self.price, self.exchange_market.price_precision)
-        self.price_with_fee = round(self.price_with_fee, self.exchange_market.price_precision)
+        self.price = round_down(self.price, self.exchange_market.price_precision)
+        self.price_with_fee = round_down(self.price_with_fee, self.exchange_market.price_precision)
 
 
 class BestOrderBid(OrderBase):
@@ -218,7 +217,7 @@ class BestOrderBid(OrderBase):
             fee = self.fee_overwrite
         else:
             fee = self.exchange_market.trading_fees[self._taker_or_maker]
-        return round((1.0 - fee) * price, self.exchange_market.price_precision)
+        return round_down((1.0 - fee) * price, self.exchange_market.price_precision)
 
     @staticmethod
     def _compare_price_opposite_exchange(price_with_fee, price_with_fee_opposite_exchange):
@@ -249,7 +248,7 @@ class BestOrderAsk(OrderBase):
             fee = self.fee_overwrite
         else:
             fee = self.exchange_market.trading_fees[self._taker_or_maker]
-        return round((1.0 + fee) * price, self.exchange_market.price_precision)
+        return round_down((1.0 + fee) * price, self.exchange_market.price_precision)
 
     @staticmethod
     def _compare_price_opposite_exchange(price_with_fee, price_with_fee_opposite_exchange):
@@ -262,6 +261,6 @@ class BestOrderAsk(OrderBase):
         # Some exchanges don't want to get an order with a quote qty that is calculated using
         # order_book layers. It needs available on balance the highest price * base qty
         if not self.exchange.layered_quote_qty_calc:
-            self.quote_qty = round(self.price_with_fee * self.base_qty, self.exchange_market.quote_precision)
+            self.quote_qty = round_down(self.price_with_fee * self.base_qty, self.exchange_market.quote_precision)
 
 

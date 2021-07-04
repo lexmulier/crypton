@@ -10,7 +10,7 @@ from bson import ObjectId
 from log import CryptonLogger
 from exchanges import initiate_exchanges
 from models import db
-from utils import sleep_now, round_and_format
+from utils import sleep_now, round_and_format, round_down
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,7 @@ class CryptonTrade(object):
 
         # Find the best ask price and bid price on the two exchanges
         self.determine_ask_and_bid_exchange(best_exchange_asks, best_exchange_bids)
+        self.determine_min_qty_and_precision()
 
         # Get the balance on the exchanges
         if not self.get_exchange_balances():
@@ -101,16 +102,11 @@ class CryptonTrade(object):
         # Save full order information to the MongoDB database
         self.save_to_database(force=True)
 
-    def determine_ask_and_bid_exchange(self, best_exchange_asks, best_exchange_bids):
-        # Pick the ask and bid exchange based on arbitrage.
-        self.ask = min(best_exchange_asks)
-        self.bid = max(best_exchange_bids)
-        self.log.info(self.ask)
-        self.log.info(self.bid)
-
+    def determine_min_qty_and_precision(self):
         # Now ask and bid are known, set the minimal quantity and precision from the exchange if not forced by user
         ask_exchange_market = self.ask.exchange.markets[self.market]
         bid_exchange_market = self.bid.exchange.markets[self.market]
+
         if self.min_base_qty is None:
             self.min_base_qty = max(ask_exchange_market.min_base_qty, bid_exchange_market.min_base_qty)
         if self.min_quote_qty is None:
@@ -120,6 +116,14 @@ class CryptonTrade(object):
             self.base_precision = min(ask_exchange_market.base_precision, bid_exchange_market.base_precision)
         if self.quote_precision is None:
             self.quote_precision = min(ask_exchange_market.quote_precision, bid_exchange_market.quote_precision)
+
+    def determine_ask_and_bid_exchange(self, best_exchange_asks, best_exchange_bids):
+        # Pick the ask and bid exchange based on arbitrage.
+        self.ask = min(best_exchange_asks)
+        self.bid = max(best_exchange_bids)
+
+        self.log.info(self.ask)
+        self.log.info(self.bid)
 
     def fetch_orders(self):
         loop = asyncio.get_event_loop()
@@ -152,10 +156,9 @@ class CryptonTrade(object):
             self.bid.opportunity(self.ask.first_price_with_fee, max_base_qty=self.ask.base_qty)
 
         # The BID exchange is where we care about the base qty
-        # TODO: Shouldn't be necessary
-        self.bid_base_order_qty = round(self.bid.base_qty * 0.9995, self.base_precision)
+        self.bid_base_order_qty = round_down(self.bid.base_qty, self.base_precision)
         # The ASK exchange is where we care about the quote qty
-        self.ask_quote_order_qty = round(self.ask.quote_qty, self.quote_precision)
+        self.ask_quote_order_qty = round_down(self.ask.quote_qty, self.quote_precision)
 
     def get_exchange_balances(self):
         # How much volume can I buy with my payment currency
@@ -194,8 +197,8 @@ class CryptonTrade(object):
         adequate_margin_amount = profit_amount >= min_profit_amount
 
         if not adequate_margin_amount and not adequate_margin_perc:
-            self.log.info(f"Profit percentage {round(profit_perc, 8)}% below min profit {min_profit_perc}%")
-            self.log.info(f"Profit amount {round(profit_amount, 8)} {self.quote_coin} below min profit"
+            self.log.info(f"Profit percentage {round_and_format(profit_perc, 8)}% below min profit {min_profit_perc}%")
+            self.log.info(f"Profit amount {round_and_format(profit_amount, 8)} {self.quote_coin} below min profit"
                           f" {min_profit_amount} {self.quote_coin}")
 
         return (adequate_margin_perc or adequate_margin_amount), profit_perc, profit_amount
@@ -236,8 +239,8 @@ class CryptonTrade(object):
         self.log.info(self.bid)
 
         # Notify about the profit
-        self.log.info(f"Profit margin: {round_and_format(profit_perc, 8)}% | "
-                      f"Profit in {self.quote_coin}: {round_and_format(profit_amount, 8)}")
+        self.log.info(f"Profit margin: {round_and_format(profit_perc, 15)}% | "
+                      f"Profit in {self.quote_coin}: {round_and_format(profit_amount, 15)}")
 
         self.expected_profit_perc = profit_perc
         self.expected_profit_amount = profit_amount
@@ -250,11 +253,6 @@ class CryptonTrade(object):
         bid_price = round_and_format(self.bid.price, self.bid.exchange_market.price_precision)
         quantity = round_and_format(self.bid_base_order_qty, self.base_precision)
 
-        self.log.info(f"BUYING @ {self.ask.exchange_id}: quantity={quantity} | "
-                      f"price={ask_price} | price_with_fee={self.ask.price_with_fee:.10f} {self.quote_coin}")
-        self.log.info(f"SELLING @ {self.bid.exchange_id}: quantity={quantity} | "
-                      f"price={bid_price} | price_with_fee={self.bid.price_with_fee:.10f} {self.quote_coin}")
-
         if self.simulate:
             return
 
@@ -264,6 +262,14 @@ class CryptonTrade(object):
             self.bid.sell(self.trade_id, quantity, bid_price)
         ]
         response = loop.run_until_complete(asyncio.gather(*tasks))
+
+        ask_price_with_fee = round_and_format(self.ask.price_with_fee, 10)
+        bid_price_with_fee = round_and_format(self.bid.price_with_fee, 10)
+
+        self.log.info(f"BUY @ {self.ask.exchange_id}: quantity={quantity} | "
+                      f"price={ask_price} | price_with_fee={ask_price_with_fee} {self.quote_coin}")
+        self.log.info(f"SELL @ {self.bid.exchange_id}: quantity={quantity} | "
+                      f"price={bid_price} | price_with_fee={bid_price_with_fee} {self.quote_coin}")
 
     def cancel_orders(self):
         loop = asyncio.get_event_loop()

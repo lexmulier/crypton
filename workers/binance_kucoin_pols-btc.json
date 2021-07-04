@@ -4,11 +4,13 @@
   "settings": {
     "binance": {
       "min_profit_perc": 0.2,
-      "min_profit_amount": 0.0
+      "min_profit_amount": 0.0000067,
+      "layered_quote_qty_calc": false
     },
     "kucoin": {
       "min_profit_perc": 0.2,
-      "min_profit_amount": 0.0
+      "min_profit_amount": 0.0000067,
+      "layered_quote_qty_calc": false
     }
   }
 }

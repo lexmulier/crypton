@@ -1,6 +1,5 @@
 from time import sleep
-
-import ccxt
+from math import floor
 
 
 def sleep_now(seconds=None):
@@ -8,8 +7,13 @@ def sleep_now(seconds=None):
     sleep(seconds)
 
 
+def round_down(value, precision):
+    precision = 10**precision
+    return floor(value * precision) / precision
+
+
 def round_and_format(value, precision):
-    return format(round(value, precision), f'.{precision}f')
+    return format(round_down(value, precision), f'.{precision}f')
 
 
 def exception_logger():
