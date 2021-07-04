@@ -4,15 +4,34 @@ from logging.handlers import TimedRotatingFileHandler
 import sys
 
 
-class CryptonLogger(object):
+class Notify(object):
 
     _my_modules = ["__main__", "trade", "exchanges", "api", "api.base"]
-    _log_levels = {"DEBUG": logging.DEBUG, "INFO": logging.INFO, "ERROR": logging.ERROR}
-    _log_formatter = "[%(levelname)s:%(asctime)s - %(module_fields)s] %(message)s"
+    _log_levels = {"debug": logging.DEBUG, "info": logging.INFO, "error": logging.ERROR}
+    _log_formatter = "[%(levelname)s:%(asctime)s] %(message)s"
 
-    def __init__(self, filename=None, level="INFO"):
+    def __init__(self, continuous=True, filename=None, level="info"):
+        self.continuous = continuous
         self.filename = filename
         self.level = level
+
+        self.messages = []
+
+    def add(self, logger, message, log_level="info", now=False):
+        if self.continuous or now:
+            self.send(logger, message, log_level=log_level)
+        else:
+            self.messages.append((logger, message, log_level))
+
+    def output(self):
+        for logger, message, log_level in self.messages:
+            self.send(logger, message, log_level=log_level)
+
+        self.messages = []
+
+    def send(self, logger, message, log_level="info"):
+        log_func = getattr(logger, log_level)
+        log_func(message)
 
     def _disable_existing_loggers(self):
         for existing_logger in logging.root.manager.loggerDict:
@@ -49,7 +68,7 @@ class CryptonLogger(object):
 
         self._disable_existing_loggers()
 
-        self.level = self._log_levels.get(self.level.upper(), logging.INFO)
+        self.level = self._log_levels.get(self.level.lower(), logging.INFO)
         logger.setLevel(self.level)
         logger.propagate = False
 
@@ -57,3 +76,20 @@ class CryptonLogger(object):
 
         if self.filename:
             logger.addHandler(self._get_file_handler(formatter=self._log_formatter))
+
+
+def output_on_error():
+    def decorator(func):
+        def decorated_function(*args, **kwargs):
+
+            try:
+                output = func(*args, **kwargs)
+                args[0].notifier.output()
+                return output
+            except Exception:
+                args[0].notifier.output()
+                raise
+
+        return decorated_function
+
+    return decorator

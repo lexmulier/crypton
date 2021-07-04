@@ -6,7 +6,7 @@ import logging
 
 from api.coinmarketcap import CoinMarketCapAPI
 from exchanges import initiate_exchanges
-from log import CryptonLogger
+from log import Notify
 from models import db
 
 logger = logging.getLogger(__name__)
@@ -308,7 +308,7 @@ if __name__ == "__main__":
     parser.add_argument("-q", "--maxquoterank", type=int, default=50, help="Maximum quote coin rank")
     args = parser.parse_args()
 
-    CryptonLogger(filename="explorer", level="INFO").initiate()
+    Notify(filename="explorer", level="info").initiate()
 
     exchange_id_list = get_exchanges_list(args.exchanges)
 

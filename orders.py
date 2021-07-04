@@ -1,4 +1,4 @@
-from utils import round_down
+from utils import round_down, rounder
 
 
 class OrderBase(object):
@@ -50,12 +50,11 @@ class OrderBase(object):
     def _generate_output(self):
         if self.opportunity_found:
             return f"{self._type}({self.exchange_id}, {self.symbol}, " \
-                   f"best_price={self.price:.15f}, price_with_fee={self.price_with_fee:.15f}, " \
-                   f"base_qty={self.base_qty:.15f}, quote_qty={self.quote_qty:.15f})"
+                   f"best_price={rounder(self.price)}, price_fee={rounder(self.price_with_fee)}, " \
+                   f"base_qty={rounder(self.base_qty)}, quote_qty={rounder(self.quote_qty)})"
 
-        return f"{self._type}({self.exchange_id}, {self.symbol}, " \
-               f"first_price={self.first_price:.15f}, first_price_with_fee={self.first_price_with_fee:.15f}, " \
-               f"base_qty={self.first_qty:.15f})"
+        return f"{self._type}({self.exchange_id}, {self.symbol}, first_price={rounder(self.first_price)}, " \
+               f"first_price_fee={rounder(self.first_price_with_fee)}, base_qty={rounder(self.first_qty)})"
 
     def __repr__(self):
         return self._generate_output()

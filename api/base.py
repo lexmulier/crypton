@@ -3,7 +3,7 @@ import pprint
 import time
 import logging
 
-from log import CryptonLogger
+from log import Notify
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class BaseAPI(object):
             api_logger = {'module_fields': f"EXCHANGE {exchange.exchange_id} - API {api_name}"}
 
         if log_level is not None:
-            CryptonLogger(level=log_level).initiate()
+            Notify(level=log_level).initiate()
 
         self.log = logging.LoggerAdapter(logger, api_logger)
         self.debug_mode = logging.root.level == logging.DEBUG

@@ -4,7 +4,8 @@ import datetime
 
 from api.get_client import get_client
 from config import EXCHANGES
-from log import CryptonLogger
+from log import Notify
+from messages import ExchangeFoundMarkets, ExchangePreloadMarket, ExchangeMarketError, ExchangeMarketNoOrderBook
 from models import db
 from orders import BestOrderAsk, BestOrderBid
 from session import SessionManager
@@ -22,7 +23,7 @@ class Exchange(object):
             auth_endpoints=True,
             min_profit_perc=None,
             min_profit_amount=None,
-            log_level=None,
+            notifier=None,
     ):
 
         self.exchange_id = exchange_id
@@ -41,11 +42,10 @@ class Exchange(object):
         self.client = get_client(self)
         self.session_manager = SessionManager(self.client)
 
-        if log_level is not None:
-            CryptonLogger(level=log_level).initiate()
-
-        exchange_logger = {'module_fields': f"EXCHANGE {self.exchange_id}"}
-        self.log = logging.LoggerAdapter(logger, exchange_logger)
+        if notifier is None:
+            self.notifier = Notify(level="info").initiate()
+        else:
+            self.notifier = notifier
 
     async def _initiate_markets(self):
         markets = await self.client.fetch_markets()
@@ -57,7 +57,7 @@ class Exchange(object):
             market_symbols.append(market_symbol)
             exchange_markets[market_symbol] = ExchangeMarket(self, market)
 
-        self.log.info(f"Found {len(exchange_markets)} markets")
+        self.notifier.add(logger, ExchangeFoundMarkets(self.exchange_id, exchange_markets), now=True)
 
         self.markets = exchange_markets
         self.market_symbols = market_symbols
@@ -129,25 +129,21 @@ class ExchangeMarket(object):
         self.trading_fees = await self.exchange.client.fetch_fees(self.symbol)
 
     async def preload(self):
-        self.exchange.log.info(f"Preloading market info for {self.symbol}")
+        self.exchange.notifier.add(logger, ExchangePreloadMarket(self.exchange.exchange_id, self.symbol), now=True)
         await self._retrieve_trading_fees()
-
-    def get_market_info(self):
-        market_info = self.exchange.markets_info.get(self.symbol)
-        if market_info is None:
-            raise ValueError(f"Market {self.symbol} not found in this exchange {self.exchange.exchange_id}")
-        return market_info
 
     async def get_orders(self, limit=None):
         async with self.exchange.session_manager:
             try:
                 asks, bids = await self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
             except Exception as error:
-                self.exchange.log.exception(f"Unsuccessful reaching market {self.symbol}: {error}")
+                msg = ExchangeMarketError(self.exchange.exchange_id, self.symbol, error)
+                self.exchange.notifier.add(logger, msg, now=True, log_level="exception")
                 return False, None, None
 
         if not asks or not bids:
-            self.exchange.log.info(f"No Asks or Bids found for market {self.symbol}")
+            msg = ExchangeMarketNoOrderBook(self.exchange.exchange_id, self.symbol)
+            self.exchange.notifier.add(logger, msg, now=True, log_level="exception")
             return False, None, None
 
         best_ask = BestOrderAsk(self, self.exchange, asks)
@@ -161,7 +157,7 @@ def initiate_exchanges(
         preload_market=None,
         exchange_settings=None,
         auth_endpoints=True,
-        log_level=None
+        notifier=None
 ):
     exchange_settings = exchange_settings or {}
 
@@ -172,7 +168,7 @@ def initiate_exchanges(
             exchange_id,
             preload_market=preload_market,
             auth_endpoints=auth_endpoints,
-            log_level=log_level,
+            notifier=notifier,
             **exchange_settings.get(exchange_id, {})
         )
         exchanges[exchange_id] = exchange

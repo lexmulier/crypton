@@ -12,8 +12,16 @@ def round_down(value, precision):
     return floor(value * precision) / precision
 
 
-def round_and_format(value, precision):
-    return format(round_down(value, precision), f'.{precision}f')
+def rounder(value, precision=15, strip=True):
+    if value is None:
+        return
+
+    rounded_value = format(round_down(value, precision), f'.{precision}f')
+
+    if strip:
+        return rounded_value.rstrip("0").rstrip(".")
+
+    return rounded_value
 
 
 def exception_logger():

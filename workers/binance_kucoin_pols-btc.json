@@ -1,6 +1,7 @@
 {
   "market": "POLS/BTC",
   "exchanges": ["binance", "kucoin"],
+  "log_continuously": false,
   "settings": {
     "binance": {
       "min_profit_perc": 0.2,

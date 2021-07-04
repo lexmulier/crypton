@@ -12,7 +12,7 @@ exchanges = initiate_exchanges(
     settings["exchanges"],
     preload_market=settings.get("market"),
     exchange_settings=settings["settings"],
-    log_level="INFO",
+    log_level="info",
 )
 refresh_exchange_balances(0, exchanges)
 self = CryptonTrade(
@@ -22,7 +22,7 @@ self = CryptonTrade(
     min_quote_qty=settings.get("min_quote_qty"),
     base_precision=settings.get("base_precision"),
     quote_precision=settings.get("quote_precision"),
-    log_level="INFO",
+    log_level="info",
     simulate=False
 )
 
