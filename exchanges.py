@@ -39,13 +39,13 @@ class Exchange(object):
         self.market_symbols = None
         self.balance = {}
 
-        self.client = get_client(self)
-        self.session_manager = SessionManager(self.client)
-
         if notifier is None:
             self.notifier = Notify(level="info").initiate()
         else:
             self.notifier = notifier
+
+        self.client = get_client(self)
+        self.session_manager = SessionManager(self.client)
 
     async def _initiate_markets(self):
         markets = await self.client.fetch_markets()
