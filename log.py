@@ -4,6 +4,23 @@ from logging.handlers import TimedRotatingFileHandler
 import sys
 
 
+def output_logs():
+    def decorator(func):
+        def decorated_function(*args, **kwargs):
+
+            try:
+                output = func(*args, **kwargs)
+                args[0].notifier.output()
+                return output
+            except Exception:
+                args[0].notifier.output()
+                raise
+
+        return decorated_function
+
+    return decorator
+
+
 class Notify(object):
 
     _my_modules = ["__main__", "trade", "exchanges", "api", "api.base"]
@@ -76,20 +93,3 @@ class Notify(object):
 
         if self.filename:
             logger.addHandler(self._get_file_handler(formatter=self._log_formatter))
-
-
-def output_on_error():
-    def decorator(func):
-        def decorated_function(*args, **kwargs):
-
-            try:
-                output = func(*args, **kwargs)
-                args[0].notifier.output()
-                return output
-            except Exception:
-                args[0].notifier.output()
-                raise
-
-        return decorated_function
-
-    return decorator

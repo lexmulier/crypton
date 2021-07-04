@@ -10,31 +10,26 @@ logger = logging.getLogger(__name__)
 
 class BaseAPI(object):
 
-    def __init__(self, config, exchange=None, log_level=None, *args, **kwargs):
+    def __init__(self, config, exchange=None, notifier=None, *args, **kwargs):
         self.config = config
         self.exchange = exchange
 
-        api_name = self.__class__.__name__
-        if self.exchange is None:
-            api_logger = {f'module_fields': f"EXCHANGE N/A - API {api_name}"}
+        if notifier is None:
+            self.notifier = Notify(level="info").initiate()
         else:
-            api_logger = {'module_fields': f"EXCHANGE {exchange.exchange_id} - API {api_name}"}
+            self.notifier = notifier
 
-        if log_level is not None:
-            Notify(level=log_level).initiate()
-
-        self.log = logging.LoggerAdapter(logger, api_logger)
         self.debug_mode = logging.root.level == logging.DEBUG
 
         self.session = None
 
     def debugger(self, **kwargs):
         if self.debug_mode:
-            self.log.debug("#" * 20)
+            self.notifier.add(logger, f"############### {self.__class__.__name__}", now=True, log_level="debug")
             for name, data in kwargs.items():
-                self.log.debug(f"{name.upper()} :")
-                self.log.debug("\n" + pprint.pformat(data))
-            self.log.debug("#" * 20)
+                self.notifier.add(logger, f"{name.upper()} :", now=True, log_level="debug")
+                self.notifier.add(logger, "\n" + pprint.pformat(data), now=True, log_level="debug")
+            self.notifier.add(logger, "###############", now=True, log_level="debug")
 
     async def get(self, url, data=None, headers=None):
         headers = headers or {}

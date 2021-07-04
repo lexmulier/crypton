@@ -7,7 +7,7 @@ import os
 
 from bson import ObjectId
 
-from log import Notify, output_on_error
+from log import Notify, output_logs
 from exchanges import initiate_exchanges
 from messages import ExchangeBalance, NotEnoughBalance, TakingQuantityFrom, ArbitrageSameExchange, NoArbitrage, \
     BelowMinimalQty, BelowMinProfitPerc, BelowMinProfitAmount, OrderProfit, OrderInfo, OrderSuccessful, OrderFailed, \
@@ -63,7 +63,7 @@ class CryptonTrade(object):
         self.actual_profit_perc = None
         self.actual_profit_amount = None
 
-    @output_on_error()
+    @output_logs()
     def start(self):
         self.notifier.add(logger, StartProcess(self.trade_id))
 
