@@ -3,7 +3,8 @@ import datetime
 import hashlib
 import hmac
 
-from api.base import BaseAPI
+from api.base import BaseAPI, logger
+from messages import APICreateOrderError, APIExchangeOrderId, APICancelOrderError
 from utils import exception_logger
 
 
@@ -88,10 +89,11 @@ class KuCoinAPI(BaseAPI):
         response = await self.post(url, data=compact_data, headers=headers)
 
         if response.get('code') != '200000':
-            self.log.exception(f"Error on {side} order: {response}")
+            msg = APICreateOrderError(self.exchange_id, self.__class__.__name__, side, response)
+            self.notifier.add(logger, msg, now=True, log_level="exception")
             return False, response
 
-        self.log.info(f"Exchange order ID {_id}")
+        self.notifier.add(logger, APIExchangeOrderId(self.exchange_id, _id))
 
         return True, _id
 
@@ -103,7 +105,8 @@ class KuCoinAPI(BaseAPI):
         response = await self.delete(url, headers=headers)
 
         if response.get('code') != '200000':
-            self.log.exception(f"Error on cancel order: {response}")
+            msg = APICancelOrderError(self.exchange_id, self.__class__.__name__, response)
+            self.notifier.add(logger, msg, now=True, log_level="exception")
             return False
 
         return True

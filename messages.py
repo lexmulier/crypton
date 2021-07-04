@@ -113,3 +113,27 @@ class OrderSuccessful(MessageBase):
 class OrderFailed(MessageBase):
     def _format(self):
         return "Something is wrong! Could not verify if orders are successful"
+
+
+class APICreateOrderError(MessageBase):
+    def _format(self):
+        # {Exchange ID} | {API Class name} - Error on {sell/buy} order: {response}
+        return f"{self.args[0]} | {self.args[1]} - Error on {self.args[2]} order: {self.args[3]}"
+
+
+class APICancelOrderError(MessageBase):
+    def _format(self):
+        # {Exchange ID} | {API Class name} - Error on cancel order: {response}
+        return f"{self.args[0]} | {self.args[1]} - Error on cancel order: {self.args[2]}"
+
+
+class APIStatusOrderError(MessageBase):
+    def _format(self):
+        # {Exchange ID} | {API Class name} - Error on retrieve order status: {response}
+        return f"{self.args[0]} | {self.args[1]} - Error on retrieve order status: {self.args[2]}"
+
+
+class APIExchangeOrderId(MessageBase):
+    def _format(self):
+        # {Exchange ID} - Exchange order ID {order ID}
+        return f"{self.args[0]} - Exchange order ID {self.args[2]}"

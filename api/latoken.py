@@ -2,7 +2,8 @@ import datetime
 import hashlib
 import hmac
 
-from api.base import BaseAPI
+from api.base import BaseAPI, logger
+from messages import APICreateOrderError, APIExchangeOrderId, APICancelOrderError
 from utils import exception_logger
 
 
@@ -110,11 +111,12 @@ class LATokenAPI(BaseAPI):
         response = await self.post(url, data=compact_data, headers=headers)
 
         if response.get("status") != "SUCCESS":
-            self.log.exception(f"Error on {side} order: {response}")
+            msg = APICreateOrderError(self.exchange_id, self.__class__.__name__, side, response)
+            self.notifier.add(logger, msg, now=True, log_level="exception")
             return False, response
 
         exchange_order_id = response["id"]
-        self.log.info(f"Exchange order ID {exchange_order_id}")
+        self.notifier.add(logger, APIExchangeOrderId(self.exchange_id, exchange_order_id))
 
         return True, exchange_order_id
 
@@ -128,7 +130,8 @@ class LATokenAPI(BaseAPI):
         response = await self.post(url, data=compact_data, headers=headers)
 
         if response.get("status") != "SUCCESS":
-            self.log.exception(f"Error on cancel order: {response}")
+            msg = APICancelOrderError(self.exchange_id, self.__class__.__name__, response)
+            self.notifier.add(logger, msg, now=True, log_level="exception")
             return False
 
         return True

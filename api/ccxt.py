@@ -29,7 +29,6 @@ class CcxtAPI(BaseAPI):
         try:
             response = await self.client.fetch_trading_fee(market)
         except (ccxt.NotSupported, ValueError):
-            self.log.exception("Error retrieving fee's, using hardcoded...")
             response = self.client.fees.get('trading', {})
 
         if 'maker' not in response or 'taker' not in response:

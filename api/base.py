@@ -12,7 +12,13 @@ class BaseAPI(object):
 
     def __init__(self, config, exchange=None, notifier=None, *args, **kwargs):
         self.config = config
-        self.exchange = exchange
+
+        if exchange:
+            self.exchange = exchange
+            self.exchange_id = exchange.exchange_id
+        else:
+            self.exchange = None
+            self.exchange_id = "NOEXCHANGEID"
 
         if notifier is None:
             self.notifier = Notify(level="info").initiate()

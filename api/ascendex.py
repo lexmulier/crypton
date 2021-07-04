@@ -3,7 +3,8 @@ import hashlib
 import hmac
 import datetime
 
-from api.base import BaseAPI
+from api.base import BaseAPI, logger
+from messages import APICreateOrderError, APIExchangeOrderId, APICancelOrderError, APIStatusOrderError
 from utils import exception_logger
 
 
@@ -80,7 +81,8 @@ class AscendexAPI(BaseAPI):
         response = await self.get(url, headers=headers)
 
         if response.get('code', 0) != 0:
-            self.log.exception(f"Error status retrieve: {response}")
+            msg = APIStatusOrderError(self.exchange_id, self.__class__.__name__, response)
+            self.notifier.add(logger, msg, now=True, log_level="exception")
             return
 
         data = {
@@ -123,11 +125,12 @@ class AscendexAPI(BaseAPI):
         response = await self.post(url, compact_data, headers=headers)
 
         if response.get('code', 0) != 0:
-            self.log.exception(f"Error on {side} order: {response}")
+            msg = APICreateOrderError(self.exchange_id, self.__class__.__name__, side, response)
+            self.notifier.add(logger, msg, now=True, log_level="exception")
             return False, response
 
         exchange_order_id = response["data"]["info"]["orderId"]
-        self.log.info(f"Exchange order ID {exchange_order_id}")
+        self.notifier.add(logger, APIExchangeOrderId(self.exchange_id, exchange_order_id))
 
         return True, exchange_order_id
 
@@ -145,7 +148,8 @@ class AscendexAPI(BaseAPI):
         response = await self.delete(url, data=compact_data, headers=headers)
 
         if response.get('code', 0) != 0:
-            self.log.exception(f"Error on cancel order: {response}")
+            msg = APICancelOrderError(self.exchange_id, self.__class__.__name__, response)
+            self.notifier.add(logger, msg, now=True, log_level="exception")
             return response
 
         return response['data']['status'] == 'Ack'

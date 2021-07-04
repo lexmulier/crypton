@@ -2,7 +2,8 @@ import datetime
 import hashlib
 import hmac
 
-from api.base import BaseAPI
+from api.base import BaseAPI, logger
+from messages import APICreateOrderError, APIExchangeOrderId, APICancelOrderError, APIStatusOrderError
 from utils import exception_logger
 
 
@@ -103,10 +104,11 @@ class BinanceAPI(BaseAPI):
         response = await self.post(url, headers=self._headers)
 
         if response.get("code"):
-            self.log.exception(f"Error on {format} order: {response}")
-            return False, _id
+            msg = APICreateOrderError(self.exchange_id, self.__class__.__name__, side, response)
+            self.notifier.add(logger, msg, now=True, log_level="exception")
+            return False, response
 
-        self.log.info(f"Exchange order ID {_id}")
+        self.notifier.add(logger, APIExchangeOrderId(self.exchange_id, _id))
 
         return True, _id
 
@@ -122,7 +124,8 @@ class BinanceAPI(BaseAPI):
         response = await self.delete(url, headers=self._headers)
 
         if response.get("code"):
-            self.log.exception(f"Error on cancel order: {response}")
+            msg = APICancelOrderError(self.exchange_id, self.__class__.__name__, response)
+            self.notifier.add(logger, msg, now=True, log_level="exception")
             return False
 
         return True
@@ -139,7 +142,8 @@ class BinanceAPI(BaseAPI):
         response = await self.get(url, headers=self._headers)
 
         if response.get("code"):
-            self.log.exception(f"Error status retrieve: {response}")
+            msg = APIStatusOrderError(self.exchange_id, self.__class__.__name__, response)
+            self.notifier.add(logger, msg, now=True, log_level="exception")
             return
 
         filled = response["status"] == "FILLED"
