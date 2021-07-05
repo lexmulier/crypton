@@ -10,8 +10,15 @@ def output_logs():
 
             try:
                 output = func(*args, **kwargs)
-                args[0].notifier.output(to_file=args[0].ordering)
+
+                trade = args[0]
+                if trade.ordering:
+                    trade.notifier.output(to_file=True)
+                else:
+                    trade.messages = []
+
                 return output
+
             except Exception:
                 args[0].notifier.output(to_file=True)
                 raise
