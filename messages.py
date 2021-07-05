@@ -136,4 +136,4 @@ class APIStatusOrderError(MessageBase):
 class APIExchangeOrderId(MessageBase):
     def _format(self):
         # {Exchange ID} - Exchange order ID {order ID}
-        return f"{self.args[0]} - Exchange order ID {self.args[2]}"
+        return f"{self.args[0]} - Exchange order ID {self.args[1]}"
