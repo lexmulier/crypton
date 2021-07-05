@@ -42,7 +42,7 @@ class Notify(object):
 
     def output(self, to_file=False):
         for logger, message, log_level in self.messages:
-            log_level = logging.ERROR if to_file else log_level
+            log_level = "error" if to_file else log_level
             self.send(logger, message, log_level=log_level)
 
         self.messages = []
