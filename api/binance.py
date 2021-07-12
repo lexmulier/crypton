@@ -105,7 +105,7 @@ class BinanceAPI(BaseAPI):
             "symbol": symbol.replace("/", ""),
             "side": side.upper(),
             "type": "LIMIT",
-            "timeInForce": "IOC",
+            "timeInForce": "FOK",
             "quantity": qty,
             "price": price,
             "newClientOrderId": str(_id),

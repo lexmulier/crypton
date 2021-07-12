@@ -21,10 +21,8 @@ def load_settings_file(worker):
 
 def refresh_exchange_balances(counter, exchanges):
     if counter % 10000 == 0:
-        print('fetching balance from exchange')
         update_local_balances_from_exchanges(exchanges)
     if counter % 1000 == 0:
-        print('fetching balance from DB')
         for exchange in exchanges.values():
             exchange.get_balance(from_database=True)
 

@@ -12,12 +12,15 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--loglevel", default="info", type=str, help="debug, info or error")
     args = parser.parse_args()
 
-    settings = load_settings_file(args.worker)
+    worker = args.worker
+    log_level = args.loglevel
+
+    settings = load_settings_file(worker)
 
     notifier = Notify(
         continuous=settings.get("log_continuously", True),
-        filename=args.worker,
-        level=args.loglevel
+        filename=worker,
+        level=log_level
     )
     notifier.initiate()
 

@@ -44,7 +44,7 @@ class Collector:
 
             if self.ask.first_price != ask.first_price or self.bid.first_price != bid.first_price:
                 self.ask = ask
-                self.bid = ask
+                self.bid = bid
                 self.changed = True
 
 

@@ -21,7 +21,8 @@ class BaseAPI(object):
         else:
             self.exchange = None
             self.exchange_id = "NO-EXCHANGE-ID"
-            self.notifier = Notify(level="info").initiate()
+            self.notifier = Notify(level="info")
+            self.notifier.initiate()
 
         self.debug_mode = logging.root.level == logging.DEBUG
 

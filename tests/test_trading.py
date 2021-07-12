@@ -71,7 +71,7 @@ async def prepare_exchanges(
     right_bids = right_bids or DEFAULT_RIGHT_BIDS
     right_balance = right_balance or DEFAULT_RIGHT_BALANCE
 
-    left_exchange = Exchange("left", preload_market=MARKET, verbose=True)
+    left_exchange = Exchange("left", preload_market=MARKET)
     left_exchange.client = TestAPI(
         side="left",
         market=MARKET,
@@ -82,7 +82,7 @@ async def prepare_exchanges(
     await left_exchange.prepare()
     left_exchange.balance = left_balance
 
-    right_exchange = Exchange("right", preload_market=MARKET, verbose=True)
+    right_exchange = Exchange("right", preload_market=MARKET)
     right_exchange.client = TestAPI(
         side="right",
         market=MARKET,
@@ -107,8 +107,7 @@ async def test_base_exchange_balance_is_lowest(_):
     # Check and execute trade if there is an opportunity
     trade = CryptonTrade(
         market=MARKET,
-        exchanges=exchanges,
-        verbose=True
+        exchanges=exchanges
     )
     trade.start(simulate=True)
 
@@ -128,8 +127,7 @@ async def test_quote_exchange_balance_is_lowest(_):
     # Check and execute trade if there is an opportunity
     trade = CryptonTrade(
         market=MARKET,
-        exchanges=exchanges,
-        verbose=True
+        exchanges=exchanges
     )
     trade.start(simulate=True)
 
@@ -152,8 +150,7 @@ async def test_bid_order_book_qty_is_lowest(_):
     # Check and execute trade if there is an opportunity
     trade = CryptonTrade(
         market=MARKET,
-        exchanges=exchanges,
-        verbose=True
+        exchanges=exchanges
     )
     trade.start(simulate=True)
 
@@ -176,8 +173,7 @@ async def test_ask_order_book_qty_is_lowest(_):
     # Check and execute trade if there is an opportunity
     trade = CryptonTrade(
         market=MARKET,
-        exchanges=exchanges,
-        verbose=True
+        exchanges=exchanges
     )
     trade.start(simulate=True)
 

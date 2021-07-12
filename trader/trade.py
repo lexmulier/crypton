@@ -34,10 +34,14 @@ class CryptonTrade(object):
         self.exchanges = exchanges
 
         self.market_pair_id = market_pair_id or "_".join([*sorted(exchanges), market]).upper()
-
-        self.notifier = notifier or Notify()
         self.performance_mode = performance_mode
         self.simulate = simulate
+
+        if notifier is None:
+            self.notifier = Notify(level="info")
+            self.notifier.initiate()
+        else:
+            self.notifier = notifier
 
         self.trade_id = ObjectId()
         self.timestamp = datetime.datetime.now()
@@ -63,9 +67,9 @@ class CryptonTrade(object):
         self.ordering = False
 
     @output_logs()
-    def start(self, best_asks, best_bids):
+    def start(self, best_asks=None, best_bids=None, simulate=False):
         self.notifier.add(logger, StartProcess(self.trade_id))
-        self.set_orderbooks(best_asks, best_bids)
+        self.set_order_books(best_asks, best_bids)
 
         # Find the best ask price and bid price on the two exchanges
         self.determine_min_qty_and_precision()
@@ -83,6 +87,9 @@ class CryptonTrade(object):
             self.save_to_database()
             return
 
+        if simulate:
+            return
+
         # Place the orders
         self.initiate_orders()
 
@@ -92,10 +99,13 @@ class CryptonTrade(object):
         # Save full order information to the MongoDB database
         self.save_to_database(force=True)
 
-    def set_orderbooks(self, best_asks, best_bids):
+    def set_order_books(self, best_asks=None, best_bids=None):
         # Pick the ask and bid exchange based on arbitrage.
-        self.ask = min(best_asks)
-        self.bid = max(best_bids)
+        if best_asks and best_bids:
+            self.ask = min(best_asks)
+            self.bid = max(best_bids)
+        else:
+            self.fetch_orders()
 
         self.notifier.add(logger, self.ask)
         self.notifier.add(logger, self.bid)

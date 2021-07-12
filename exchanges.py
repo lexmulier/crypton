@@ -22,7 +22,7 @@ class Exchange(object):
             layered_quote_qty_calc=True,
             min_profit_perc=None,
             min_profit_amount=None,
-            notifier=None,
+            notifier=None
     ):
 
         self.exchange_id = exchange_id
@@ -38,7 +38,8 @@ class Exchange(object):
         self.balance = {}
 
         if notifier is None:
-            self.notifier = Notify(level="info").initiate()
+            self.notifier = Notify(level="info")
+            self.notifier.initiate()
         else:
             self.notifier = notifier
 

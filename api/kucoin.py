@@ -86,7 +86,7 @@ class KuCoinAPI(BaseAPI):
             "type": "limit",
             "size": str(qty),
             "price": str(price),
-            "timeInForce": "IOC",
+            "timeInForce": "FOK",
             "hidden": False,
             "iceberg": False,
         }

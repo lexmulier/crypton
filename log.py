@@ -20,7 +20,6 @@ def output_logs():
                 return output
 
             except Exception:
-                print("HIER????")
                 args[0].notifier.output(to_file=True)
                 raise
 
@@ -31,7 +30,7 @@ def output_logs():
 
 class Notify(object):
 
-    _my_modules = ["__main__", "trade", "exchanges", "api", "api.base"]
+    _my_modules = ["__main__", "trade", "exchanges", "api", "api.base", "exchanges", "trader.trade", "trader"]
     _log_levels = {"debug": logging.DEBUG, "info": logging.INFO, "error": logging.ERROR}
     _log_formatter = "[%(levelname)s:%(asctime)s] %(message)s"
 
