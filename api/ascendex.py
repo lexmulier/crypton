@@ -27,7 +27,7 @@ class AscendexAPI(BaseAPI):
     @exception_logger()
     async def fetch_markets(self):
         url = self._base_url + "/api/pro/v1/products"
-        response = await self.get(url)
+        response = await self.async_get(url)
         markets = [
             {
                 "symbol": f"{x['baseAsset']}/{x['quoteAsset']}",
@@ -45,13 +45,21 @@ class AscendexAPI(BaseAPI):
     async def fetch_balance(self):
         url = self._private_base_url + "/api/pro/v1/cash/balance"
         headers = self._get_headers("balance", self._nonce())
-        response = await self.get(url, headers=headers)
+        response = await self.async_get(url, headers=headers)
         return {row["asset"]: float(row["availableBalance"]) for row in response["data"]}
 
     @exception_logger()
     async def fetch_order_book(self, symbol, **kwargs):
         url = f"https://ascendex.com/api/pro/v1/depth?symbol={symbol}"
-        response = await self.get(url)
+        response = await self.async_get(url)
+        asks = [[float(x[0]), float(x[1])] for x in response["data"]["data"]["asks"]]
+        bids = [[float(x[0]), float(x[1])] for x in response["data"]["data"]["bids"]]
+        return asks, bids
+
+    @exception_logger()
+    def fetch_order_book_sync(self, symbol, **kwargs):
+        url = f"https://ascendex.com/api/pro/v1/depth?symbol={symbol}"
+        response = self.get(url)
         asks = [[float(x[0]), float(x[1])] for x in response["data"]["data"]["asks"]]
         bids = [[float(x[0]), float(x[1])] for x in response["data"]["data"]["bids"]]
         return asks, bids
@@ -71,14 +79,14 @@ class AscendexAPI(BaseAPI):
     async def _fetch_uuid(self):
         headers = self._get_headers("info", self._nonce())
         url = self._base_url + "/api/pro/v1/info"
-        response = await self.get(url, headers=headers)
+        response = await self.async_get(url, headers=headers)
         self._uuid = response["data"]["userUID"]
 
     @exception_logger()
     async def fetch_order_status(self, order_id, **kwargs):
         headers = self._get_headers("order/status", self._nonce())
         url = f"{self._private_base_url}/api/pro/v1/cash/order/status?orderId={str(order_id)}"
-        response = await self.get(url, headers=headers)
+        response = await self.async_get(url, headers=headers)
 
         if response.get('code', 0) != 0:
             msg = APIStatusOrderError(self.exchange_id, self.__class__.__name__, response)
@@ -99,7 +107,7 @@ class AscendexAPI(BaseAPI):
     async def fetch_order_history(self):
         headers = self._get_headers("order/hist/current", self._nonce())
         url = self._private_base_url + "/api/pro/v1/cash/order/hist/current"
-        response = await self.get(url, headers=headers)
+        response = await self.async_get(url, headers=headers)
         print(response)
 
     @exception_logger()
@@ -122,7 +130,7 @@ class AscendexAPI(BaseAPI):
         compact_data = self._compact_json_dict(data)
         headers = self._get_headers("order", nonce)
 
-        response = await self.post(url, compact_data, headers=headers)
+        response = await self.async_post(url, compact_data, headers=headers)
 
         if response.get('code', 0) != 0:
             msg = APICreateOrderError(self.exchange_id, self.__class__.__name__, side, response)
@@ -145,7 +153,7 @@ class AscendexAPI(BaseAPI):
         }
         compact_data = self._compact_json_dict(data)
         headers = self._get_headers("order", nonce)
-        response = await self.delete(url, data=compact_data, headers=headers)
+        response = await self.async_delete(url, data=compact_data, headers=headers)
 
         if response.get('code', 0) != 0:
             msg = APICancelOrderError(self.exchange_id, self.__class__.__name__, response)

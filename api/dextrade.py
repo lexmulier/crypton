@@ -15,9 +15,17 @@ class DexTradeAPI(BaseAPI):
         return response["token"], response["data"]["secret"]
 
     @exception_logger()
-    async def fetch_order_book(self, symbol, limit=None):
+    async def fetch_order_book(self, symbol, *args):
         url = f"https://api.dex-trade.com/v1/public/book?pair={symbol.replace('/', '')}"
-        response = await self.get(url)
+        response = await self.async_get(url)
+        asks = [[x["rate"], x["volume"]] for x in response["data"]["sell"]]
+        bids = [[x["rate"], x["volume"]] for x in response["data"]["buy"]]
+        return asks, bids
+
+    @exception_logger()
+    def fetch_order_book_sync(self, symbol, *args):
+        url = f"https://api.dex-trade.com/v1/public/book?pair={symbol.replace('/', '')}"
+        response = self.get(url)
         asks = [[x["rate"], x["volume"]] for x in response["data"]["sell"]]
         bids = [[x["rate"], x["volume"]] for x in response["data"]["buy"]]
         return asks, bids
@@ -25,7 +33,7 @@ class DexTradeAPI(BaseAPI):
     @exception_logger()
     async def fetch_markets(self):
         url = "https://api.dex-trade.com/v1/public/symbols"
-        response = await self.get(url)
+        response = await self.async_get(url)
         markets = [
             {
                 "symbol": f"{x['base']}/{x['quote']}",
@@ -41,7 +49,7 @@ class DexTradeAPI(BaseAPI):
     async def fetch_balance(self):
         self.exchange.log.info("NEEDS IMPROVEMENT")
         # url = "https://api.dex-trade.com/v1/private/balances"
-        # response = await self.get(url)
+        # response = await self.async_get(url)
         # balance = {row["asset"]: float(row["free"]) for row in response.get("balances", {})}
         return {}
 

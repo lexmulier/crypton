@@ -25,7 +25,7 @@ class BinanceAPI(BaseAPI):
     @exception_logger()
     async def fetch_markets(self):
         url = self._base_url + "/api/v3/exchangeInfo"
-        response = await self.get(url)
+        response = await self.async_get(url)
 
         markets = []
         for market in response["symbols"]:
@@ -55,7 +55,7 @@ class BinanceAPI(BaseAPI):
     async def fetch_balance(self):
         endpoint = "/api/v3/account"
         url = self._get_request_url(endpoint, timestamp=self._nonce())
-        response = await self.get(url, headers=self._headers)
+        response = await self.async_get(url, headers=self._headers)
         return {
             row["asset"]: float(row["free"])
             for row in response["balances"]
@@ -66,7 +66,7 @@ class BinanceAPI(BaseAPI):
         endpoint = "/sapi/v1/asset/tradeFee"
         data = {"symbol": symbol.replace("/", "")}
         url = self._get_request_url(endpoint, data=data, timestamp=self._nonce())
-        response = await self.get(url, headers=self._headers)
+        response = await self.async_get(url, headers=self._headers)
 
         return {
             "taker": float(response[0]["takerCommission"]),
@@ -79,7 +79,19 @@ class BinanceAPI(BaseAPI):
         data = {"symbol": symbol.replace("/", "")}
         url = self._get_request_url(endpoint, data=data, signature=False)
 
-        response = await self.get(url, headers=self._headers)
+        response = await self.async_get(url, headers=self._headers)
+
+        asks = [[float(x[0]), float(x[1])] for x in response["asks"]]
+        bids = [[float(x[0]), float(x[1])] for x in response["bids"]]
+        return asks, bids
+
+    @exception_logger()
+    def fetch_order_book_sync(self, symbol, **kwargs):
+        endpoint = "/api/v3/depth"
+        data = {"symbol": symbol.replace("/", "")}
+        url = self._get_request_url(endpoint, data=data, signature=False)
+
+        response = self.get(url, headers=self._headers)
 
         asks = [[float(x[0]), float(x[1])] for x in response["asks"]]
         bids = [[float(x[0]), float(x[1])] for x in response["bids"]]
@@ -101,7 +113,7 @@ class BinanceAPI(BaseAPI):
         }
 
         url = self._get_request_url(endpoint, data=data)
-        response = await self.post(url, headers=self._headers)
+        response = await self.async_post(url, headers=self._headers)
 
         if response.get("code"):
             msg = APICreateOrderError(self.exchange_id, self.__class__.__name__, side, response)
@@ -121,7 +133,7 @@ class BinanceAPI(BaseAPI):
             "timestamp": int(self._nonce())
         }
         url = self._get_request_url(endpoint, data=data)
-        response = await self.delete(url, headers=self._headers)
+        response = await self.async_delete(url, headers=self._headers)
 
         if response.get("code"):
             msg = APICancelOrderError(self.exchange_id, self.__class__.__name__, response)
@@ -139,7 +151,7 @@ class BinanceAPI(BaseAPI):
             "timestamp": int(self._nonce())
         }
         url = self._get_request_url(endpoint, data=data)
-        response = await self.get(url, headers=self._headers)
+        response = await self.async_get(url, headers=self._headers)
 
         if response.get("code"):
             msg = APIStatusOrderError(self.exchange_id, self.__class__.__name__, response)
@@ -163,7 +175,7 @@ class BinanceAPI(BaseAPI):
             "timestamp": int(self._nonce())
         }
         url = self._get_request_url(endpoint, data=data)
-        response = await self.get(url, headers=self._headers)
+        response = await self.async_get(url, headers=self._headers)
         return response
 
     def _get_request_url(self, endpoint, data=None, timestamp=None, signature=True):

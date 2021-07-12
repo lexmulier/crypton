@@ -21,7 +21,7 @@ class KuCoinAPI(BaseAPI):
     @exception_logger()
     async def fetch_markets(self):
         url = self._base_url + "/api/v1/symbols"
-        response = await self.get(url)
+        response = await self.async_get(url)
         return [
             {
                 "symbol": f"{x['baseCurrency']}/{x['quoteCurrency']}",
@@ -39,7 +39,15 @@ class KuCoinAPI(BaseAPI):
     @exception_logger()
     async def fetch_order_book(self, symbol, limit=None):
         url = f"{self._base_url}/api/v1/market/orderbook/level2_{limit or 20}?symbol={symbol.replace('/', '-')}"
-        response = await self.get(url)
+        response = await self.async_get(url)
+        asks = [[float(x[0]), float(x[1])] for x in response["data"]["asks"]]
+        bids = [[float(x[0]), float(x[1])] for x in response["data"]["bids"]]
+        return asks, bids
+
+    @exception_logger()
+    def fetch_order_book_sync(self, symbol, limit=None):
+        url = f"{self._base_url}/api/v1/market/orderbook/level2_{limit or 20}?symbol={symbol.replace('/', '-')}"
+        response = self.get(url)
         asks = [[float(x[0]), float(x[1])] for x in response["data"]["asks"]]
         bids = [[float(x[0]), float(x[1])] for x in response["data"]["bids"]]
         return asks, bids
@@ -49,7 +57,7 @@ class KuCoinAPI(BaseAPI):
         endpoint = f"/api/v1/trade-fees?symbols={symbol.replace('/', '-')}"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
-        response = await self.get(url, headers=headers)
+        response = await self.async_get(url, headers=headers)
         return {
             "taker": float(response["data"][0]["takerFeeRate"]),
             "maker": float(response["data"][0]["makerFeeRate"])
@@ -60,7 +68,7 @@ class KuCoinAPI(BaseAPI):
         endpoint = "/api/v1/accounts"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
-        response = await self.get(url, headers=headers)
+        response = await self.async_get(url, headers=headers)
         return {
             row["currency"]: float(row["available"])
             for row in response["data"]
@@ -86,7 +94,7 @@ class KuCoinAPI(BaseAPI):
         compact_data = self._compact_json_dict(data)
         headers = self._get_headers(endpoint, method="POST", compact_data=compact_data)
 
-        response = await self.post(url, data=compact_data, headers=headers)
+        response = await self.async_post(url, data=compact_data, headers=headers)
 
         if response.get('code') != '200000':
             msg = APICreateOrderError(self.exchange_id, self.__class__.__name__, side, response)
@@ -102,7 +110,7 @@ class KuCoinAPI(BaseAPI):
         endpoint = f"/api/v1/order/client-order/{str(order_id)}"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint, method="DELETE")
-        response = await self.delete(url, headers=headers)
+        response = await self.async_delete(url, headers=headers)
 
         if response.get('code') != '200000':
             msg = APICancelOrderError(self.exchange_id, self.__class__.__name__, response)
@@ -116,7 +124,7 @@ class KuCoinAPI(BaseAPI):
         endpoint = f"/api/v1/order/client-order/{str(order_id)}"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
-        response = await self.get(url, headers=headers)
+        response = await self.async_get(url, headers=headers)
 
         data = {
             "price": float(response["data"]["price"]),

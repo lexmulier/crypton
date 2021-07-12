@@ -6,7 +6,7 @@ import nest_asyncio
 from exchanges import Exchange
 from config import EXCHANGES
 from tests.testing_api import TestAPI
-from trade import CryptonTrade
+from trader.trade import CryptonTrade
 
 
 # We need nested loops in tests only for some reason

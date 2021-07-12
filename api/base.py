@@ -1,5 +1,6 @@
 import json
 import pprint
+import requests
 import time
 import logging
 
@@ -24,7 +25,8 @@ class BaseAPI(object):
 
         self.debug_mode = logging.root.level == logging.DEBUG
 
-        self.session = None
+        self.async_session = None
+        self.sync_session = requests.Session()
 
     def debugger(self, **kwargs):
         if self.debug_mode:
@@ -34,28 +36,53 @@ class BaseAPI(object):
                 self.notifier.add(logger, "\n" + pprint.pformat(data), now=True, log_level="debug")
             self.notifier.add(logger, "###############", now=True, log_level="debug")
 
-    async def get(self, url, data=None, headers=None):
+    async def async_get(self, url, data=None, headers=None):
         headers = headers or {}
         data = data or {}
-        async with self.session.get(url, data=data, headers=headers) as response:
+        async with self.async_session.get(url, data=data, headers=headers) as response:
             json_response = await response.json()
             self.debugger(url=url, data=data, headers=headers, response=json_response)
             return json_response
 
-    async def post(self, url, data=None, headers=None):
+    async def async_post(self, url, data=None, headers=None):
         headers = headers or {}
         data = data or {}
         headers["Content-Type"] = "application/json"
-        async with self.session.post(url, data=data, headers=headers) as response:
+        async with self.async_session.post(url, data=data, headers=headers) as response:
             json_response = await response.json()
             self.debugger(url=url, data=data, headers=headers, response=json_response)
             return json_response
 
-    async def delete(self, url, data=None, headers=None):
+    async def async_delete(self, url, data=None, headers=None):
         headers = headers or {}
         data = data or {}
-        async with self.session.delete(url, data=data, headers=headers) as response:
+        async with self.async_session.delete(url, data=data, headers=headers) as response:
             json_response = await response.json()
+            self.debugger(url=url, data=data, headers=headers, response=json_response)
+            return json_response
+
+    def get(self, url, data=None, headers=None):
+        headers = headers or {}
+        data = data or {}
+        with self.sync_session.get(url, data=data, headers=headers) as response:
+            json_response = response.json()
+            self.debugger(url=url, data=data, headers=headers, response=json_response)
+            return json_response
+
+    def post(self, url, data=None, headers=None):
+        headers = headers or {}
+        data = data or {}
+        headers["Content-Type"] = "application/json"
+        with self.sync_session.post(url, data=data, headers=headers) as response:
+            json_response = response.json()
+            self.debugger(url=url, data=data, headers=headers, response=json_response)
+            return json_response
+
+    def delete(self, url, data=None, headers=None):
+        headers = headers or {}
+        data = data or {}
+        with self.sync_session.delete(url, data=data, headers=headers) as response:
+            json_response = response.json()
             self.debugger(url=url, data=data, headers=headers, response=json_response)
             return json_response
 
@@ -79,7 +106,7 @@ class BaseAPI(object):
             list: Asks [[price, quantity], [price, quantity], ...]
             list: Bids [[price, quantity], [price, quantity], ...]
         """
-        raise NotImplementedError("fetch_order_book not implemented for this API")
+        raise NotImplementedError("fetch_order_book_async not implemented for this API")
 
     async def fetch_markets(self, *args, **kwargs):
         """
@@ -177,6 +204,3 @@ class BaseAPI(object):
     @staticmethod
     def _get_params_for_sig(data):
         return '&'.join(["{}={}".format(key, data[key]) for key in data])
-
-
-

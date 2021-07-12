@@ -20,7 +20,7 @@ class LATokenAPI(BaseAPI):
     @exception_logger()
     async def fetch_exchange_specifics(self):
         url = self._base_url + "/v2/ticker"
-        response = await self.get(url)
+        response = await self.async_get(url)
         for row in response:
             base, quote = row["symbol"].split("/")
             self._id_to_coin_mapping[row["baseCurrency"]] = base
@@ -31,7 +31,7 @@ class LATokenAPI(BaseAPI):
     @exception_logger()
     async def fetch_markets(self):
         url = self._base_url + "/v2/pair"
-        response = await self.get(url)
+        response = await self.async_get(url)
 
         markets = []
         for market in response:
@@ -58,7 +58,7 @@ class LATokenAPI(BaseAPI):
         endpoint = "/v2/auth/account"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
-        response = await self.get(url, headers=headers)
+        response = await self.async_get(url, headers=headers)
         return {
             self._id_to_coin_mapping.get(row["currency"]): float(row["available"])
             for row in response if self._id_to_coin_mapping.get(row["currency"])
@@ -70,7 +70,7 @@ class LATokenAPI(BaseAPI):
         endpoint = f"/v2/auth/trade/fee/{base}/{quote}"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
-        response = await self.get(url, headers=headers)
+        response = await self.async_get(url, headers=headers)
         return {
             "taker": float(response["takerFee"]),
             "maker": float(response["makerFee"])
@@ -81,7 +81,18 @@ class LATokenAPI(BaseAPI):
         base, quote = symbol.split("/")
         endpoint = f"/v2/book/{self._coin_to_id_mapping[base]}/{self._coin_to_id_mapping[quote]}"
         url = self._base_url + endpoint
-        response = await self.get(url)
+        response = await self.async_get(url)
+
+        asks = [[float(x["price"]), float(x["quantity"])] for x in response["ask"]]
+        bids = [[float(x["price"]), float(x["quantity"])] for x in response["bid"]]
+        return asks, bids
+
+    @exception_logger()
+    def fetch_order_book_sync(self, symbol, **kwargs):
+        base, quote = symbol.split("/")
+        endpoint = f"/v2/book/{self._coin_to_id_mapping[base]}/{self._coin_to_id_mapping[quote]}"
+        url = self._base_url + endpoint
+        response = self.get(url)
 
         asks = [[float(x["price"]), float(x["quantity"])] for x in response["ask"]]
         bids = [[float(x["price"]), float(x["quantity"])] for x in response["bid"]]
@@ -108,7 +119,7 @@ class LATokenAPI(BaseAPI):
         headers = self._get_headers(endpoint, method="POST", data=data)
 
         compact_data = self._compact_json_dict(data)
-        response = await self.post(url, data=compact_data, headers=headers)
+        response = await self.async_post(url, data=compact_data, headers=headers)
 
         if response.get("status") != "SUCCESS":
             msg = APICreateOrderError(self.exchange_id, self.__class__.__name__, side, response)
@@ -127,7 +138,7 @@ class LATokenAPI(BaseAPI):
         data = {"id": order_id}
         headers = self._get_headers(endpoint, method="POST", data=data)
         compact_data = self._compact_json_dict(data)
-        response = await self.post(url, data=compact_data, headers=headers)
+        response = await self.async_post(url, data=compact_data, headers=headers)
 
         if response.get("status") != "SUCCESS":
             msg = APICancelOrderError(self.exchange_id, self.__class__.__name__, response)
@@ -141,7 +152,7 @@ class LATokenAPI(BaseAPI):
         endpoint = f"/v2/auth/order/getOrder/{order_id}"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
-        response = await self.get(url, headers=headers)
+        response = await self.async_get(url, headers=headers)
 
         filled = response["status"] == "ORDER_STATUS_CLOSED"
         return {
@@ -157,7 +168,7 @@ class LATokenAPI(BaseAPI):
         endpoint = "/v2/auth/order"
         url = self._base_url + endpoint
         headers = self._get_headers(endpoint)
-        response = await self.get(url, headers=headers)
+        response = await self.async_get(url, headers=headers)
         return response
 
     def _get_headers(self, endpoint, method="GET", data=None):

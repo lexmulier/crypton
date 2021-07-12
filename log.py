@@ -20,6 +20,7 @@ def output_logs():
                 return output
 
             except Exception:
+                print("HIER????")
                 args[0].notifier.output(to_file=True)
                 raise
 

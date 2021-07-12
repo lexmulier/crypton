@@ -131,7 +131,7 @@ class CryptonExplore(object):
     DEFAULT_FEE = 0.002
 
     def __init__(self, exchange_ids, max_base_rank=500, max_quote_rank=50):
-        self.exchanges = initiate_exchanges(exchange_ids, auth_endpoints=False)
+        self.exchanges = initiate_exchanges(exchange_ids)
 
         self.max_base_rank = max_base_rank
         self.max_quote_rank = max_quote_rank
@@ -166,7 +166,7 @@ class CryptonExplore(object):
     @staticmethod
     def _fetch_orders(exchanges, market):
         loop = asyncio.get_event_loop()
-        tasks = [exchange.markets[market].get_orders() for exchange in exchanges]
+        tasks = [exchange.markets[market].get_orders_async() for exchange in exchanges]
         return loop.run_until_complete(asyncio.gather(*tasks))
 
     def fetch_orders(self, exchanges, market):

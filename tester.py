@@ -1,6 +1,6 @@
 from orders import *
-from trade import *
-from trade import load_settings_file
+from trader.trade import *
+from trader.utils import load_settings_file, refresh_exchange_balances
 
 # Trade
 trade_id = ObjectId("60e1200937b478984144e493")

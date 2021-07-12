@@ -20,7 +20,7 @@ class TestAPI(object):
     async def fetch_fees(self, *args, **kwargs):
         return {"maker": 0.002, "taker": 0.002}
 
-    async def fetch_order_book(self, *args, **kwargs):
+    async def fetch_order_book_async(self, *args, **kwargs):
         return self.asks, self.bids
 
     async def fetch_markets(self, *args, **kwargs):

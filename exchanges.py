@@ -20,7 +20,6 @@ class Exchange(object):
             exchange_id,
             preload_market=None,
             layered_quote_qty_calc=True,
-            auth_endpoints=True,
             min_profit_perc=None,
             min_profit_amount=None,
             notifier=None,
@@ -33,7 +32,6 @@ class Exchange(object):
         self.min_profit_perc = min_profit_perc
         self.min_profit_amount = min_profit_amount
         self.layered_quote_qty_calc = layered_quote_qty_calc
-        self.auth_endpoints = auth_endpoints
 
         self.markets = None
         self.market_symbols = None
@@ -69,9 +67,6 @@ class Exchange(object):
         async with self.session_manager:
             await self._fetch_exchange_specifics()
             await self._initiate_markets()
-
-            if self.auth_endpoints:
-                await self._retrieve_balance()
 
             if self.preload_market:
                 await self.markets[self.preload_market].preload()
@@ -132,15 +127,7 @@ class ExchangeMarket(object):
         self.exchange.notifier.add(logger, ExchangePreloadMarket(self.exchange.exchange_id, self.symbol), now=True)
         await self._retrieve_trading_fees()
 
-    async def get_orders(self, limit=None):
-        async with self.exchange.session_manager:
-            try:
-                asks, bids = await self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
-            except Exception as error:
-                msg = ExchangeMarketError(self.exchange.exchange_id, self.symbol, error)
-                self.exchange.notifier.add(logger, msg, now=True, log_level="exception")
-                return False, None, None
-
+    def process_orders(self, asks, bids):
         if not asks or not bids:
             msg = ExchangeMarketNoOrderBook(self.exchange.exchange_id, self.symbol)
             self.exchange.notifier.add(logger, msg, now=True, log_level="exception")
@@ -151,12 +138,32 @@ class ExchangeMarket(object):
 
         return True, best_ask, best_bid
 
+    async def get_orders_async(self, limit=None):
+        async with self.exchange.session_manager:
+            try:
+                asks, bids = await self.exchange.client.fetch_order_book(symbol=self.symbol, limit=limit)
+            except Exception as error:
+                msg = ExchangeMarketError(self.exchange.exchange_id, self.symbol, error)
+                self.exchange.notifier.add(logger, msg, now=True, log_level="exception")
+                return False, None, None
+
+        return self.process_orders(asks, bids)
+
+    def get_orders_sync(self, limit=None):
+        try:
+            asks, bids = self.exchange.client.fetch_order_book_sync(symbol=self.symbol, limit=limit)
+        except Exception as error:
+            msg = ExchangeMarketError(self.exchange.exchange_id, self.symbol, error)
+            self.exchange.notifier.add(logger, msg, now=True, log_level="exception")
+            return False, None, None
+
+        return self.process_orders(asks, bids)
+
 
 def initiate_exchanges(
         exchange_ids,
         preload_market=None,
         exchange_settings=None,
-        auth_endpoints=True,
         notifier=None
 ):
     exchange_settings = exchange_settings or {}
@@ -167,7 +174,6 @@ def initiate_exchanges(
         exchange = Exchange(
             exchange_id,
             preload_market=preload_market,
-            auth_endpoints=auth_endpoints,
             notifier=notifier,
             **exchange_settings.get(exchange_id, {})
         )
