@@ -99,6 +99,13 @@ class CryptonTrade(object):
         # Save full order information to the MongoDB database
         self.save_to_database(force=True)
 
+        # Update balance quickly with best guess
+        self.update_balance_after_trade()
+
+    def update_balance_after_trade(self):
+        self.ask.exchange.balance[self.quote_coin] -= self.ask_quote_order_qty
+        self.bid.exchange.balance[self.base_coin] -= self.bid_base_order_qty
+
     def set_order_books(self, best_asks=None, best_bids=None):
         # Pick the ask and bid exchange based on arbitrage.
         if best_asks and best_bids:
@@ -244,7 +251,7 @@ class CryptonTrade(object):
             self.notifier.add(logger, BelowMinProfitPerc(profit_perc, min_profit_perc))
             self.notifier.add(logger, BelowMinProfitAmount(profit_amount, self.quote_coin, min_profit_amount))
 
-        return (adequate_margin_perc or adequate_margin_amount), profit_perc, profit_amount
+        return (adequate_margin_perc and adequate_margin_amount), profit_perc, profit_amount
 
     def initiate_orders(self):
         self.ordering = True
@@ -290,9 +297,6 @@ class CryptonTrade(object):
 
                 self.actual_profit_amount = self.bid.actual_quote_qty - self.ask.actual_quote_qty
                 self.actual_profit_perc = (self.actual_profit_amount / self.bid.actual_quote_qty) * 100.0
-
-                self.ask.exchange.balance[self.quote_coin] -= self.ask_quote_order_qty
-                self.bid.exchange.balance[self.base_coin] -= self.bid_base_order_qty
                 return
 
         self.successful = False
@@ -313,43 +317,43 @@ class CryptonTrade(object):
             "market_pair_id": self.market_pair_id,
             "expected": {
                 "ask": {
-                    "price": self.ask.price,
-                    "price_with_fee": self.ask.price_with_fee,
-                    "base_quantity": self.ask.base_qty,
-                    "quote_quantity": self.ask.quote_qty,
+                    "price": rounder(self.ask.price),
+                    "price_with_fee": rounder(self.ask.price_with_fee),
+                    "base_quantity": rounder(self.ask.base_qty),
+                    "quote_quantity": rounder(self.ask.quote_qty),
                     "order_book": self.ask.order_book,
                     "balance": self.ask.exchange.balance
                 },
                 "bid": {
-                    "price": self.bid.price,
-                    "price_with_fee": self.bid.price_with_fee,
-                    "base_quantity": self.bid.base_qty,
-                    "quote_quantity": self.bid.quote_qty,
+                    "price": rounder(self.bid.price),
+                    "price_with_fee": rounder(self.bid.price_with_fee),
+                    "base_quantity": rounder(self.bid.base_qty),
+                    "quote_quantity": rounder(self.bid.quote_qty),
                     "order_book": self.bid.order_book,
                     "balance": self.bid.exchange.balance
                 },
-                "profit_percentage": self.expected_profit_perc,
-                "profit_amount": self.expected_profit_amount,
+                "profit_percentage": rounder(self.expected_profit_perc),
+                "profit_amount": rounder(self.expected_profit_amount),
             },
             "actual": {
                 "ask": {
                     "exchange_order_id": str(self.ask.exchange_order_id),
-                    "price": self.ask.actual_price,
-                    "price_with_fee": self.ask.actual_price_with_fee,
+                    "price": rounder(self.ask.actual_price),
+                    "price_with_fee": rounder(self.ask.actual_price_with_fee),
                     "timestamp": self.ask.timestamp,
-                    "base_quantity": self.bid_base_order_qty,
+                    "base_quantity": rounder(self.bid_base_order_qty),
                     "filled": self.ask.status
                 },
                 "bid": {
                     "exchange_order_id": str(self.bid.exchange_order_id),
-                    "price": self.bid.actual_price,
-                    "price_with_fee": self.bid.actual_price_with_fee,
+                    "price": rounder(self.bid.actual_price),
+                    "price_with_fee": rounder(self.bid.actual_price_with_fee),
                     "timestamp": self.bid.timestamp,
-                    "base_quantity": self.bid_base_order_qty,
+                    "base_quantity": rounder(self.bid_base_order_qty),
                     "filled": self.bid.status
                 },
-                "profit_percentage": self.actual_profit_perc,
-                "profit_amount": self.actual_profit_amount,
+                "profit_percentage": rounder(self.actual_profit_perc),
+                "profit_amount": rounder(self.actual_profit_amount),
             }
         }
 
