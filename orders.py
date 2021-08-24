@@ -1,3 +1,5 @@
+from abc import ABC
+
 from utils import round_down, rounder
 
 
@@ -18,13 +20,13 @@ class OrderBase(object):
         self.exchange = exchange
         self.exchange_id = exchange.exchange_id
 
-        self.opportunity_found = False
         self.fee_overwrite = None
+        self.opportunities = {}
 
         self.price = 0.0
-        self.fee = 0.0
         self.base_qty = 0.0
         self.quote_qty = 0.0
+        self.quote_fee = 0.0
 
         self.actual_price = 0.0
         self.actual_price_with_fee = 0.0
@@ -44,28 +46,63 @@ class OrderBase(object):
         return self.order_book[0][1]
 
     @property
+    def first_price_with_fee(self):
+        return self._calculate_price_with_fee(self.first_price)
+
+    @property
     def first_quote_qty(self):
-        return self.first_price * self.first_base_qty
+        return self._calculate_quote_qty(self.first_base_qty, self.first_price)
 
     @property
     def first_fee(self):
         return self._calculate_fee(self.first_quote_qty)
 
     @property
-    def first_volume(self):
-        return self.first_quote_qty + self.first_fee
+    def first_offer(self):
+        return self._calculate_offer(self.first_quote_qty, self.first_fee)
 
-    def _calculate_fee(self, quote_qty):
+    @staticmethod
+    def _calculate_quote_qty(qty, price):
+        return qty * price
+
+    def _calculate_fee(self, quote_or_price):
         if self.fee_overwrite is not None:
             fee_factor = self.fee_overwrite
         else:
             fee_factor = self.exchange_market.trading_fees[self._taker_or_maker]
-        return quote_qty * fee_factor
+
+        return quote_or_price * fee_factor
+
+    @staticmethod
+    def _calculate_offer(*args):
+        raise NotImplementedError()
+
+    @staticmethod
+    def _calculate_price_with_fee(*args):
+        raise NotImplementedError()
+
+    def _calculate_opportunity(self, opposite_price):
+        # Loop all bids in the order book
+        cum_base_qty = 0.0
+        for row in self.order_book:
+            price = row[0]
+            base_qty = row[1]
+
+            # Compare the prices from the both exchanges, if this returns True there is no arbitrage
+            if self._compare_prices(price, opposite_price):
+                break
+
+            cum_base_qty += base_qty
+            quote_qty = self._calculate_quote_qty(base_qty, price)
+            fee = self._calculate_fee(quote_qty)
+            offer = self._calculate_offer(quote_qty, fee)
+
+            self.opportunities[base_qty] = [price, cum_base_qty, offer]
 
     def _generate_output(self):
         if self.opportunity_found:
             return f"{self._type}({self.exchange_id}, {self.symbol}, best_price={rounder(self.price)}, " \
-                   f"base_qty={rounder(self.base_qty)}, quote_qty={rounder(self.quote_qty)}, fee={rounder(self.fee)})"
+                   f"base_qty={rounder(self.base_qty)}, quote_qty={rounder(self.quote_qty)}, fee={rounder(self.quote_fee)})"
 
         return f"{self._type}({self.exchange_id}, {self.symbol}, first_price={rounder(self.first_price)}, " \
                f"base_qty={rounder(self.first_base_qty)}, quote_qty={rounder(self.first_quote_qty)}, " \
@@ -77,29 +114,29 @@ class OrderBase(object):
     def __str__(self):
         return self._generate_output()
 
-    def _get_comparing_prices(self, other_exchange):
+    def _get_comparing_offers(self, other_exchange):
         if self.status == self.STATUS_FILLED and other_exchange.status == other_exchange.STATUS_FILLED:
             return self.actual_price_with_fee, other_exchange.actual_price_with_fee
         elif self.opportunity_found and other_exchange.opportunity_found:
             return self.price_with_fee, other_exchange.price_with_fee
         else:
-            return self.first_price_with_fee, other_exchange.first_price_with_fee
+            return self.first_offer, other_exchange.first_offer
 
     def __lt__(self, other_exchange):
-        price, other_price = self._get_comparing_prices(other_exchange)
-        return price < other_price
+        offer, other_offer = self._get_comparing_offers(other_exchange)
+        return offer < other_offer
 
     def __le__(self, other_exchange):
-        price, other_price = self._get_comparing_prices(other_exchange)
-        return price <= other_price
+        offer, other_price = self._get_comparing_offers(other_exchange)
+        return offer <= other_offer
 
     def __gt__(self, other_exchange):
-        price, other_price = self._get_comparing_prices(other_exchange)
-        return price > other_price
+        offer, other_price = self._get_comparing_offers(other_exchange)
+        return offer > other_offer
 
     def __ge__(self, other_exchange):
-        price, other_price = self._get_comparing_prices(other_exchange)
-        return price >= other_price
+        offer, other_price = self._get_comparing_offers(other_exchange)
+        return offer >= other_offer
 
     async def sell(self, _id, qty, price):
         return await self._create_order(_id, "sell", qty, price)
@@ -151,64 +188,11 @@ class OrderBase(object):
             if result["filled"] is True:
                 self.status = self.STATUS_FILLED
 
-    def _compare_price_opposite_exchange(self, *args):
+    def _compare_prices(self, *args):
         raise NotImplementedError()
 
-    def _opportunity(self, price_with_fee_opposite_exchange, max_quote_qty=None, max_base_qty=None):
-        self.base_qty = 0.0
-        self.quote_qty = 0.0
 
-        # Loop all bids in the order book
-        for row in self.order_book:
-            price = row[0]
-            base_qty = row[1]
-
-            # Calculate the ask price including the fee
-            price_with_fee = self._calculate_fee(price)
-
-            # Compare the prices from the both exchanges, if this returns True there is no arbitrage
-            if self._compare_price_opposite_exchange(price_with_fee, price_with_fee_opposite_exchange):
-                break
-
-            # Calculate quote currency quantity
-            quote_qty = price_with_fee * base_qty
-
-            if max_quote_qty is not None and quote_qty > max_quote_qty:
-                # We need to calculate the base quantity based on the quote quantity portion of the trade
-                factor = (max_quote_qty / quote_qty)
-                base_qty = base_qty * factor
-                quote_qty = quote_qty * factor
-
-            elif max_base_qty is not None and base_qty > max_base_qty:
-                # We need to calculate the base quantity based on the quote quantity portion of the trade
-                factor = (max_base_qty / base_qty)
-                base_qty = base_qty * factor
-                quote_qty = quote_qty * factor
-
-            # Set the price to this price
-            self.price = price
-            self.price_with_fee = price_with_fee
-            self.base_qty += base_qty
-            self.quote_qty += quote_qty
-            self.opportunity_found = True
-
-            # Reduce the balance left by the amount of the current trade
-            if max_base_qty is not None:
-                max_base_qty -= base_qty
-                if max_base_qty <= 0.0:
-                    break
-
-            if max_quote_qty is not None:
-                max_quote_qty -= quote_qty
-                if max_quote_qty <= 0.0:
-                    break
-
-        # Round all numbers
-        self.price = round_down(self.price, self.exchange_market.price_precision)
-        self.price_with_fee = round_down(self.price_with_fee, self.exchange_market.price_precision)
-
-
-class BestOrderBid(OrderBase):
+class BestOrderBid(OrderBase, ABC):
     """
     The bid price is the highest price a potential buyer is willing to pay for a crypto.
     """
@@ -223,16 +207,22 @@ class BestOrderBid(OrderBase):
     def order_bids(bids):
         return sorted(bids, key=lambda bid: bid[0], reverse=True)
 
-    @staticmethod
-    def _compare_price_opposite_exchange(price_with_fee, price_with_fee_opposite_exchange):
+    def _compare_prices(self, price, price_opposite_exchange):
         # If this is True then there is no arbitrage anymore
-        return price_with_fee <= price_with_fee_opposite_exchange
+        return self._calculate_price_with_fee(price) <= price_opposite_exchange
 
-    def opportunity(self, *args, **kwargs):
-        self._opportunity(*args, **kwargs)
+    def calculate_price_with_fee(self, price):
+        return price - self._calculate_fee(price)
+
+    @staticmethod
+    def _calculate_offer(quote_qty, fee):
+        return quote_qty - fee
+
+    def calculate_opportunity(self, *args, **kwargs):
+        return self._calculate_opportunity(*args, **kwargs)
 
 
-class BestOrderAsk(OrderBase):
+class BestOrderAsk(OrderBase, ABC):
     """
     The ask price is the lowest price a would-be seller is willing to accept for a crypto
     """
@@ -247,17 +237,21 @@ class BestOrderAsk(OrderBase):
     def order_asks(asks):
         return sorted(asks, key=lambda ask: ask[0])
 
-    @staticmethod
-    def _compare_price_opposite_exchange(price_with_fee, price_with_fee_opposite_exchange):
+    def _compare_prices(self, price, price_opposite_exchange):
         # If this is True then there is no arbitrage anymore
-        return price_with_fee >= price_with_fee_opposite_exchange
+        return self._calculate_price_with_fee(price) >= price_opposite_exchange
 
-    def opportunity(self, *args, **kwargs):
-        self._opportunity(*args, **kwargs)
+    def calculate_price_with_fee(self, price):
+        return price + self._calculate_fee(price)
 
-        # Some exchanges don't want to get an order with a quote qty that is calculated using
-        # order_book layers. It needs available on balance the highest price * base qty
-        if not self.exchange.layered_quote_qty_calc:
-            self.quote_qty = round_down(self.price_with_fee * self.base_qty, self.exchange_market.quote_precision)
+    @staticmethod
+    def _calculate_offer(quote_qty, fee):
+        return quote_qty + fee
+
+    def calculate_opportunity(self, *args, **kwargs):
+        self._calculate_opportunity(*args, **kwargs)
+
+
+
 
 

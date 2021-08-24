@@ -172,19 +172,19 @@ class CryptonTrade(object):
 
     def get_best_opportunity(self):
         # Get the total order we can make while there is still arbitrage
-        self.ask.opportunity(self.bid.first_price_with_fee, max_quote_qty=self.ask_quote_exchange_qty)
-        self.bid.opportunity(self.ask.first_price_with_fee, max_base_qty=self.bid_base_exchange_qty)
+        self.ask.calculate_opportunity(self.bid.first_price_with_fee)
+        self.bid.calculate_opportunity(self.ask.first_price_with_fee)
 
         # Need to recalculate the quantity based on the result of the lowest exchange/balance
         if self.ask.base_qty > self.bid.base_qty:
             # The bid exchange is dictating the maximum amount, recalculating the ask exchange using the new qty
             self.notifier.add(logger, TakingQuantityFrom("BID", self.bid.base_qty, self.base_coin))
-            self.ask.opportunity(self.bid.first_price_with_fee, max_base_qty=self.bid.base_qty)
+            self.ask.calculate_opportunity(self.bid.first_price, max_base_qty=self.bid.base_qty)
 
         elif self.bid.base_qty > self.ask.base_qty:
             # The ask exchange is dictating the maximum amount, recalculating the bid exchange using the new qty
             self.notifier.add(logger, TakingQuantityFrom("ASK", self.ask.base_qty, self.base_coin))
-            self.bid.opportunity(self.ask.first_price_with_fee, max_base_qty=self.ask.base_qty)
+            self.bid.calculate_opportunity(self.ask.first_price, max_base_qty=self.ask.base_qty)
 
         # The BID exchange is where we care about the base qty
         self.bid_base_order_qty = round_down(self.bid.base_qty, self.base_precision)

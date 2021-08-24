@@ -182,17 +182,17 @@ class CryptonExplore(object):
     @staticmethod
     def get_best_opportunity(best_ask, best_bid):
         # Get the total order we can make while there is still arbitrage
-        best_ask.opportunity(best_bid.first_price_with_fee)
-        best_bid.opportunity(best_ask.first_price_with_fee)
+        best_ask.calculate_opportunity(best_bid.first_price_with_fee)
+        best_bid.calculate_opportunity(best_ask.first_price_with_fee)
 
         # Need to recalculate the quantity based on the result of the lowest exchange/balance
         if best_ask.base_qty > best_bid.base_qty:
             # The bid exchange is dictating the maximum amount, recalculating the ask exchange using the new qty
-            best_ask.opportunity(best_bid.first_price_with_fee, max_base_qty=best_bid.base_qty)
+            best_ask.calculate_opportunity(best_bid.first_price_with_fee, max_base_qty=best_bid.base_qty)
 
         elif best_bid.base_qty > best_ask.base_qty:
             # The ask exchange is dictating the maximum amount, recalculating the bid exchange using the new qty
-            best_bid.opportunity(best_ask.first_price_with_fee, max_base_qty=best_ask.base_qty)
+            best_bid.calculate_opportunity(best_ask.first_price_with_fee, max_base_qty=best_ask.base_qty)
 
     def verify_arbitrage_and_profit(self, best_ask, best_bid):
         """
