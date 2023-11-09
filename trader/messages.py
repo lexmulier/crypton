@@ -6,8 +6,10 @@ class ExchangeBalance(MessageBase):
     def _format(self):
         # {bid base exchange qty} {base coin} on BID Exchange {bid exchange ID}
         # {ask quote exchange qty} {quote coin} on BID Exchange {ask exchange ID}
-        return f"{rounder(self.args[0])} {self.args[1]} on BID exchange {self.args[2]} | " \
-               f"{rounder(self.args[3])} {self.args[4]} on ASK exchange {self.args[5]}"
+        return (
+            f"{rounder(self.args[0])} {self.args[1]} on BID exchange {self.args[2]} | "
+            f"{rounder(self.args[3])} {self.args[4]} on ASK exchange {self.args[5]}"
+        )
 
 
 class NotEnoughBalance(MessageBase):
@@ -59,8 +61,10 @@ class OrderProfit(MessageBase):
 class OrderInfo(MessageBase):
     def _format(self):
         # {side} @ {exchange_id}: quantity={quantity} | price={price} | price_with_fee={price_fee} {coin}
-        return f"{self.args[0]} @ {self.args[1]}: quantity={self.args[2]} | " \
-               f"price={self.args[3]} | price_fee={self.args[4]} {self.args[5]}"
+        return (
+            f"{self.args[0]} @ {self.args[1]}: quantity={self.args[2]} | "
+            f"price={self.args[3]} | price_fee={self.args[4]} {self.args[5]}"
+        )
 
 
 class OrderSuccessful(MessageBase):

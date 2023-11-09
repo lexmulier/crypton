@@ -1,13 +1,5 @@
-class TestAPI(object):
-
-    def __init__(
-            self,
-            side="",
-            market=None,
-            asks=None,
-            bids=None,
-            balance=None
-    ):
+class TestAPI:
+    def __init__(self, side="", market=None, asks=None, bids=None, balance=None):
         self.side = side
         self.market = market
         self.asks = asks
@@ -25,16 +17,18 @@ class TestAPI(object):
 
     async def fetch_markets(self, *args, **kwargs):
         base, quote = self.market.split("/")
-        return [{
-            "symbol": self.market,
-            "base": base,
-            "quote": quote,
-            "min_base_qty": 0.0,
-            "min_quote_qty": 0.0,
-            "base_precision": 8,
-            "quote_precision": 8,
-            "price_precision": 8
-        }]
+        return [
+            {
+                "symbol": self.market,
+                "base": base,
+                "quote": quote,
+                "min_base_qty": 0.0,
+                "min_quote_qty": 0.0,
+                "base_precision": 8,
+                "quote_precision": 8,
+                "price_precision": 8,
+            }
+        ]
 
     async def fetch_balance(self, *args, **kwargs):
         return self.balance

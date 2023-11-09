@@ -7,7 +7,6 @@ import sys
 def output_logs():
     def decorator(func):
         def decorated_function(*args, **kwargs):
-
             try:
                 output = func(*args, **kwargs)
 
@@ -28,9 +27,17 @@ def output_logs():
     return decorator
 
 
-class Notify(object):
-
-    _my_modules = ["__main__", "trade", "exchanges", "api", "api.base", "exchanges", "trader.trade", "trader"]
+class Notify:
+    _my_modules = [
+        "__main__",
+        "trade",
+        "exchanges",
+        "api",
+        "api.base",
+        "exchanges",
+        "trader.trade",
+        "trader",
+    ]
     _log_levels = {"debug": logging.DEBUG, "info": logging.INFO, "error": logging.ERROR}
     _log_formatter = "[%(levelname)s:%(asctime)s] %(message)s"
 
@@ -78,7 +85,7 @@ class Notify(object):
 
         filename = self.filename
         log_file = os.path.join("logs", filename + ".log")
-        file_handler = TimedRotatingFileHandler(log_file, when='midnight')
+        file_handler = TimedRotatingFileHandler(log_file, when="midnight")
         file_handler.setLevel(logging.ERROR)
 
         file_handler.setFormatter(formatter)

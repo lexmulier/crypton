@@ -41,11 +41,11 @@ def upsert_market_pair(market, exchanges):
         "market_pair_id": market_pair_id,
         "exchanges": exchanges,
         "market": market,
-        "last_run": timestamp
+        "last_run": timestamp,
     }
     db.client.market_pairs.update_one(
         {"market_pair_id": market_pair_id},
         {"$set": market_pair_info, "$setOnInsert": {"first_run": timestamp}},
-        upsert=True
+        upsert=True,
     )
     return market_pair_id

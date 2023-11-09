@@ -3,7 +3,7 @@ from abc import ABC
 from utils import round_down, rounder
 
 
-class OrderBase(object):
+class OrderBase:
     _type = None
     _taker_or_maker = None
 
@@ -101,12 +101,16 @@ class OrderBase(object):
 
     def _generate_output(self):
         if self.opportunity_found:
-            return f"{self._type}({self.exchange_id}, {self.symbol}, best_price={rounder(self.price)}, " \
-                   f"base_qty={rounder(self.base_qty)}, quote_qty={rounder(self.quote_qty)}, fee={rounder(self.quote_fee)})"
+            return (
+                f"{self._type}({self.exchange_id}, {self.symbol}, best_price={rounder(self.price)}, "
+                f"base_qty={rounder(self.base_qty)}, quote_qty={rounder(self.quote_qty)}, fee={rounder(self.quote_fee)})"
+            )
 
-        return f"{self._type}({self.exchange_id}, {self.symbol}, first_price={rounder(self.first_price)}, " \
-               f"base_qty={rounder(self.first_base_qty)}, quote_qty={rounder(self.first_quote_qty)}, " \
-               f"fee={rounder(self.first_fee)}))"
+        return (
+            f"{self._type}({self.exchange_id}, {self.symbol}, first_price={rounder(self.first_price)}, "
+            f"base_qty={rounder(self.first_base_qty)}, quote_qty={rounder(self.first_quote_qty)}, "
+            f"fee={rounder(self.first_fee)}))"
+        )
 
     def __repr__(self):
         return self._generate_output()
@@ -115,7 +119,10 @@ class OrderBase(object):
         return self._generate_output()
 
     def _get_comparing_offers(self, other_exchange):
-        if self.status == self.STATUS_FILLED and other_exchange.status == other_exchange.STATUS_FILLED:
+        if (
+            self.status == self.STATUS_FILLED
+            and other_exchange.status == other_exchange.STATUS_FILLED
+        ):
             return self.actual_price_with_fee, other_exchange.actual_price_with_fee
         elif self.opportunity_found and other_exchange.opportunity_found:
             return self.price_with_fee, other_exchange.price_with_fee
@@ -148,11 +155,7 @@ class OrderBase(object):
         self.status = self.STATUS_ACTIVE
         async with self.exchange.session_manager:
             success, order_id = await self.exchange.client.create_order(
-                _id,
-                self.symbol,
-                qty,
-                price,
-                side
+                _id, self.symbol, qty, price, side
             )
             self.exchange_order_id = order_id
             if not success:
@@ -161,11 +164,15 @@ class OrderBase(object):
 
     async def cancel(self):
         async with self.exchange.session_manager:
-            return await self.exchange.client.cancel_order(self.exchange_order_id, symbol=self.symbol)
+            return await self.exchange.client.cancel_order(
+                self.exchange_order_id, symbol=self.symbol
+            )
 
     async def get_status(self):
         async with self.exchange.session_manager:
-            result = await self.exchange.client.fetch_order_status(self.exchange_order_id, symbol=self.symbol)
+            result = await self.exchange.client.fetch_order_status(
+                self.exchange_order_id, symbol=self.symbol
+            )
 
             if not result or "price" not in result:
                 return
@@ -178,10 +185,11 @@ class OrderBase(object):
             else:
                 self.actual_price_with_fee = round(
                     result["price"] + (result["fee"] / result["base_quantity"]),
-                    self.exchange_market.price_precision
+                    self.exchange_market.price_precision,
                 )
             self.actual_quote_qty = round(
-                self.actual_base_qty * self.actual_price_with_fee, self.exchange_market.quote_precision
+                self.actual_base_qty * self.actual_price_with_fee,
+                self.exchange_market.quote_precision,
             )
             self.timestamp = result["timestamp"]
 
@@ -196,6 +204,7 @@ class BestOrderBid(OrderBase, ABC):
     """
     The bid price is the highest price a potential buyer is willing to pay for a crypto.
     """
+
     _type = "BID"
     _taker_or_maker = "taker"
 
@@ -226,6 +235,7 @@ class BestOrderAsk(OrderBase, ABC):
     """
     The ask price is the lowest price a would-be seller is willing to accept for a crypto
     """
+
     _type = "ASK"
     _taker_or_maker = "taker"
 
@@ -250,8 +260,3 @@ class BestOrderAsk(OrderBase, ABC):
 
     def calculate_opportunity(self, *args, **kwargs):
         self._calculate_opportunity(*args, **kwargs)
-
-
-
-
-

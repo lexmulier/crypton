@@ -41,16 +41,18 @@ class LATokenAPI(BaseAPI):
                 continue
 
             symbol = f"{base}/{quote}"
-            markets.append({
-                "symbol": symbol,
-                "base": base,
-                "quote": quote,
-                "min_base_qty": float(market["minOrderQuantity"]),
-                "min_quote_qty": float(market["minOrderCostUsd"]),
-                "base_precision": int(market["quantityDecimals"]),
-                "quote_precision": int(market["costDisplayDecimals"]),
-                "price_precision": int(market["priceDecimals"])
-            })
+            markets.append(
+                {
+                    "symbol": symbol,
+                    "base": base,
+                    "quote": quote,
+                    "min_base_qty": float(market["minOrderQuantity"]),
+                    "min_quote_qty": float(market["minOrderCostUsd"]),
+                    "base_precision": int(market["quantityDecimals"]),
+                    "quote_precision": int(market["costDisplayDecimals"]),
+                    "price_precision": int(market["priceDecimals"]),
+                }
+            )
         return markets
 
     @exception_logger()
@@ -61,7 +63,8 @@ class LATokenAPI(BaseAPI):
         response = await self.async_get(url, headers=headers)
         return {
             self._id_to_coin_mapping.get(row["currency"]): float(row["available"])
-            for row in response if self._id_to_coin_mapping.get(row["currency"])
+            for row in response
+            if self._id_to_coin_mapping.get(row["currency"])
         }
 
     @exception_logger()
@@ -73,7 +76,7 @@ class LATokenAPI(BaseAPI):
         response = await self.async_get(url, headers=headers)
         return {
             "taker": float(response["takerFee"]),
-            "maker": float(response["makerFee"])
+            "maker": float(response["makerFee"]),
         }
 
     @exception_logger()
@@ -113,7 +116,7 @@ class LATokenAPI(BaseAPI):
             "type": "LIMIT",
             "quantity": str(qty),
             "price": str(price),
-            "timestamp": nonce
+            "timestamp": nonce,
         }
 
         headers = self._get_headers(endpoint, method="POST", data=data)
@@ -122,12 +125,16 @@ class LATokenAPI(BaseAPI):
         response = await self.async_post(url, data=compact_data, headers=headers)
 
         if response.get("status") != "SUCCESS":
-            msg = APICreateOrderError(self.exchange_id, self.__class__.__name__, side, response)
+            msg = APICreateOrderError(
+                self.exchange_id, self.__class__.__name__, side, response
+            )
             self.notifier.add(logger, msg, now=True, log_level="exception")
             return False, response
 
         exchange_order_id = response["id"]
-        self.notifier.add(logger, APIExchangeOrderId(self.exchange_id, exchange_order_id))
+        self.notifier.add(
+            logger, APIExchangeOrderId(self.exchange_id, exchange_order_id)
+        )
 
         return True, exchange_order_id
 
@@ -141,7 +148,9 @@ class LATokenAPI(BaseAPI):
         response = await self.async_post(url, data=compact_data, headers=headers)
 
         if response.get("status") != "SUCCESS":
-            msg = APICancelOrderError(self.exchange_id, self.__class__.__name__, response)
+            msg = APICancelOrderError(
+                self.exchange_id, self.__class__.__name__, response
+            )
             self.notifier.add(logger, msg, now=True, log_level="exception")
             return False
 
@@ -159,8 +168,10 @@ class LATokenAPI(BaseAPI):
             "price": float(response["price"]),
             "base_quantity": float(response["quantity"]),
             "fee": None,
-            "timestamp": datetime.datetime.fromtimestamp(response["timestamp"] / 1000.0),
-            "filled": filled
+            "timestamp": datetime.datetime.fromtimestamp(
+                response["timestamp"] / 1000.0
+            ),
+            "filled": filled,
         }
 
     @exception_logger()
@@ -174,12 +185,14 @@ class LATokenAPI(BaseAPI):
     def _get_headers(self, endpoint, method="GET", data=None):
         data_str = self._get_params_for_sig(data) if data else ""
 
-        sig = hmac.new(self._secret, (method + endpoint + data_str).encode("ascii"), hashlib.sha512).hexdigest()
+        sig = hmac.new(
+            self._secret, (method + endpoint + data_str).encode("ascii"), hashlib.sha512
+        ).hexdigest()
 
         headers = {
             "X-LA-APIKEY": self._api_key,
             "X-LA-SIGNATURE": sig,
-            "X-LA-DIGEST": "HMAC-SHA512"
+            "X-LA-DIGEST": "HMAC-SHA512",
         }
 
         return headers

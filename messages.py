@@ -45,7 +45,9 @@ class APICreateOrderError(MessageBase):
 class APICancelOrderError(MessageBase):
     def _format(self):
         # {Exchange ID} | {API Class name} - Error on cancel order: {response}
-        return f"{self.args[0]} | {self.args[1]} - Error on cancel order: {self.args[2]}"
+        return (
+            f"{self.args[0]} | {self.args[1]} - Error on cancel order: {self.args[2]}"
+        )
 
 
 class APIStatusOrderError(MessageBase):

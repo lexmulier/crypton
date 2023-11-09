@@ -32,7 +32,11 @@ class IndoExAPI(BaseAPI):
         url = "https://api.indoex.io/markets/"
         response = await self.async_get(url)
         markets = [
-            {"symbol": f"{x['base']}/{x['quote']}", "base": x["base"], "quote": x["quote"]}
+            {
+                "symbol": f"{x['base']}/{x['quote']}",
+                "base": x["base"],
+                "quote": x["quote"],
+            }
             for x in response["combinations"]
         ]
         return markets

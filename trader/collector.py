@@ -42,7 +42,10 @@ class Collector:
             if not success:
                 continue
 
-            if self.ask.first_price != ask.first_price or self.bid.first_price != bid.first_price:
+            if (
+                self.ask.first_price != ask.first_price
+                or self.bid.first_price != bid.first_price
+            ):
                 self.ask = ask
                 self.bid = bid
                 self.changed = True
@@ -56,12 +59,12 @@ def create_collector_instances(exchanges, settings):
     left_collector = Collector(
         market,
         left_exchange.markets[market],
-        settings["settings"][left_exchange.exchange_id]
+        settings["settings"][left_exchange.exchange_id],
     )
     right_collector = Collector(
         market,
         right_exchange.markets[market],
-        settings["settings"][right_exchange.exchange_id]
+        settings["settings"][right_exchange.exchange_id],
     )
 
     return left_collector, right_collector

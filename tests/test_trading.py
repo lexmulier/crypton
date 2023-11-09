@@ -30,11 +30,9 @@ DEFAULT_LEFT_BIDS = [
     [1010.0, 50.0],
     [1009.0, 10.0],
     [1008.0, 20.0],
-    [1007.0, 50.0]
+    [1007.0, 50.0],
 ]
-DEFAULT_LEFT_BALANCE = {
-    "ETH": 100000.0
-}
+DEFAULT_LEFT_BALANCE = {"ETH": 100000.0}
 
 # RIGHT SIDE IS THE ASK EXCHANGE, QUOTE CURRENCY IS DRIVING
 # Asks are always ascending
@@ -47,22 +45,20 @@ DEFAULT_RIGHT_ASKS = [
     [1011.0, 50.0],
     [1012.0, 10.0],
     [1013.0, 20.0],
-    [1014.0, 50.0]
+    [1014.0, 50.0],
 ]
 # Bids are always descending
 DEFAULT_RIGHT_BIDS = [[100.0, 10.0]]  # Extra low to ignore this one
-DEFAULT_RIGHT_BALANCE = {
-    "USDT": 1000000.0
-}
+DEFAULT_RIGHT_BALANCE = {"USDT": 1000000.0}
 
 
 async def prepare_exchanges(
-        left_asks=None,
-        left_bids=None,
-        left_balance=None,
-        right_asks=None,
-        right_bids=None,
-        right_balance=None
+    left_asks=None,
+    left_bids=None,
+    left_balance=None,
+    right_asks=None,
+    right_bids=None,
+    right_balance=None,
 ):
     left_asks = left_asks or DEFAULT_LEFT_ASKS
     left_bids = left_bids or DEFAULT_LEFT_BIDS
@@ -73,11 +69,7 @@ async def prepare_exchanges(
 
     left_exchange = Exchange("left", preload_market=MARKET)
     left_exchange.client = TestAPI(
-        side="left",
-        market=MARKET,
-        asks=left_asks,
-        bids=left_bids,
-        balance=left_balance
+        side="left", market=MARKET, asks=left_asks, bids=left_bids, balance=left_balance
     )
     await left_exchange.prepare()
     left_exchange.balance = left_balance
@@ -88,7 +80,7 @@ async def prepare_exchanges(
         market=MARKET,
         asks=right_asks,
         bids=right_bids,
-        balance=right_balance
+        balance=right_balance,
     )
     await right_exchange.prepare()
     right_exchange.balance = right_balance
@@ -99,16 +91,13 @@ async def prepare_exchanges(
 
 
 @pytest.mark.asyncio
-@mock.patch('exchanges.get_client')
+@mock.patch("exchanges.get_client")
 async def test_base_exchange_balance_is_lowest(_):
     left_balance = {"ETH": 70.0}
     exchanges = await prepare_exchanges(left_balance=left_balance)
 
     # Check and execute trade if there is an opportunity
-    trade = CryptonTrade(
-        market=MARKET,
-        exchanges=exchanges
-    )
+    trade = CryptonTrade(market=MARKET, exchanges=exchanges)
     trade.start(simulate=True)
 
     assert trade.bid.exchange_id == "left"
@@ -119,16 +108,13 @@ async def test_base_exchange_balance_is_lowest(_):
 
 
 @pytest.mark.asyncio
-@mock.patch('exchanges.get_client')
+@mock.patch("exchanges.get_client")
 async def test_quote_exchange_balance_is_lowest(_):
     right_balance = {"USDT": 75000.0}
     exchanges = await prepare_exchanges(right_balance=right_balance)
 
     # Check and execute trade if there is an opportunity
-    trade = CryptonTrade(
-        market=MARKET,
-        exchanges=exchanges
-    )
+    trade = CryptonTrade(market=MARKET, exchanges=exchanges)
     trade.start(simulate=True)
 
     assert trade.bid.exchange_id == "left"
@@ -139,19 +125,13 @@ async def test_quote_exchange_balance_is_lowest(_):
 
 
 @pytest.mark.asyncio
-@mock.patch('exchanges.get_client')
+@mock.patch("exchanges.get_client")
 async def test_bid_order_book_qty_is_lowest(_):
-    left_bids = [
-        [1015.0, 10.0],
-        [1014.0, 20.0]
-    ]
+    left_bids = [[1015.0, 10.0], [1014.0, 20.0]]
     exchanges = await prepare_exchanges(left_bids=left_bids)
 
     # Check and execute trade if there is an opportunity
-    trade = CryptonTrade(
-        market=MARKET,
-        exchanges=exchanges
-    )
+    trade = CryptonTrade(market=MARKET, exchanges=exchanges)
     trade.start(simulate=True)
 
     assert trade.bid.exchange_id == "left"
@@ -162,19 +142,13 @@ async def test_bid_order_book_qty_is_lowest(_):
 
 
 @pytest.mark.asyncio
-@mock.patch('exchanges.get_client')
+@mock.patch("exchanges.get_client")
 async def test_ask_order_book_qty_is_lowest(_):
-    right_asks = [
-        [1006.0, 10.0],
-        [1007.0, 40.0]
-    ]
+    right_asks = [[1006.0, 10.0], [1007.0, 40.0]]
     exchanges = await prepare_exchanges(right_asks=right_asks)
 
     # Check and execute trade if there is an opportunity
-    trade = CryptonTrade(
-        market=MARKET,
-        exchanges=exchanges
-    )
+    trade = CryptonTrade(market=MARKET, exchanges=exchanges)
     trade.start(simulate=True)
 
     assert trade.bid.exchange_id == "left"

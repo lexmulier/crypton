@@ -9,8 +9,7 @@ from log import Notify
 logger = logging.getLogger(__name__)
 
 
-class BaseAPI(object):
-
+class BaseAPI:
     def __init__(self, config, exchange=None, *args, **kwargs):
         self.config = config
 
@@ -31,10 +30,19 @@ class BaseAPI(object):
 
     def debugger(self, **kwargs):
         if self.debug_mode:
-            self.notifier.add(logger, f"############### {self.__class__.__name__}", now=True, log_level="debug")
+            self.notifier.add(
+                logger,
+                f"############### {self.__class__.__name__}",
+                now=True,
+                log_level="debug",
+            )
             for name, data in kwargs.items():
-                self.notifier.add(logger, f"{name.upper()} :", now=True, log_level="debug")
-                self.notifier.add(logger, "\n" + pprint.pformat(data), now=True, log_level="debug")
+                self.notifier.add(
+                    logger, f"{name.upper()} :", now=True, log_level="debug"
+                )
+                self.notifier.add(
+                    logger, "\n" + pprint.pformat(data), now=True, log_level="debug"
+                )
             self.notifier.add(logger, "###############", now=True, log_level="debug")
 
     async def async_get(self, url, data=None, headers=None):
@@ -57,7 +65,9 @@ class BaseAPI(object):
     async def async_delete(self, url, data=None, headers=None):
         headers = headers or {}
         data = data or {}
-        async with self.async_session.delete(url, data=data, headers=headers) as response:
+        async with self.async_session.delete(
+            url, data=data, headers=headers
+        ) as response:
             json_response = await response.json()
             self.debugger(url=url, data=data, headers=headers, response=json_response)
             return json_response
@@ -184,7 +194,7 @@ class BaseAPI(object):
 
     @staticmethod
     def _compact_json_dict(data):
-        return json.dumps(data, separators=(',', ':'), ensure_ascii=False)
+        return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
 
     @staticmethod
     def _nonce():
@@ -193,10 +203,10 @@ class BaseAPI(object):
     @staticmethod
     def _precision(value):
         if float(value) < 1.0:
-            precision = value[::-1].find('.')
+            precision = value[::-1].find(".")
         elif float(value) >= 1.0:
             value = str(float(value))
-            precision = (value.find('.') * -1) + 1
+            precision = (value.find(".") * -1) + 1
         else:
             raise ValueError(f"A precision we can't solve! {value}")
 
@@ -204,4 +214,4 @@ class BaseAPI(object):
 
     @staticmethod
     def _get_params_for_sig(data):
-        return '&'.join(["{}={}".format(key, data[key]) for key in data])
+        return "&".join(["{}={}".format(key, data[key]) for key in data])

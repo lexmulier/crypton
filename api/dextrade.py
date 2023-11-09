@@ -38,7 +38,7 @@ class DexTradeAPI(BaseAPI):
             {
                 "symbol": f"{x['base']}/{x['quote']}",
                 "base": x["base"],
-                "quote": x["quote"]
+                "quote": x["quote"],
             }
             for x in response["data"]
         ]

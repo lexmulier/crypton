@@ -24,8 +24,8 @@ def on_close(ws):
 
 def on_message(ws, message):
     content = json.loads(message)
-    m = content['m']
-    if m == 'depth':
+    m = content["m"]
+    if m == "depth":
         print(content)
     elif m == "ping":
         send_pong(ws)
@@ -33,16 +33,11 @@ def on_message(ws, message):
         print(f"ignore message {m}")
 
 
-
-
 url = "wss://api-test.ascendex-sandbox.io:443/api/pro/v2/stream"
 
 
 ws = websocket.WebSocketApp(
-    url,
-    on_message=on_message,
-    on_error=on_error,
-    on_close=on_close
+    url, on_message=on_message, on_error=on_error, on_close=on_close
 )
 
 ws.run_forever()

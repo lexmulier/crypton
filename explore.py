@@ -12,122 +12,118 @@ from models import db
 logger = logging.getLogger(__name__)
 
 ALL_EXCHANGES = [
-    'aax',
-    'aofex',
-    'bequant',
-    'bibox',
-    'bigone',
-    'binancecoinm',
-    'binanceus',
-    'binanceusdm',
-    'bit2c',
-    'bitbank',
-    'bitbay',
-    'bitcoincom',
-    'bitfinex',
-    'bitfinex2',
-    'bitflyer',
-    'bitforex',
-    'bitget',
-    'bithumb',
-    'bitmart',
-    'bitmex',
-    'bitpanda',
-    'bitso',
-    'bitstamp',
-    'bitstamp1',
-    'bittrex',
-    'bitvavo',
-    'bitz',
-    'bl3p',
-    'btcalpha',
-    'btcbox',
-    'btcmarkets',
-    'btctradeua',
-    'btcturk',
-    'bw',
-    'bybit',
-    'bytetrade',
-    'cdax',
-    'cex',
-    'coinbaseprime',
-    'coinbasepro',
-    'coincheck',
-    'coinex',
-    'coinfalcon',
-    'coinfloor',
-    'coinmate',
-    'coinone',
-    'coinspot',
+    "aax",
+    "aofex",
+    "bequant",
+    "bibox",
+    "bigone",
+    "binancecoinm",
+    "binanceus",
+    "binanceusdm",
+    "bit2c",
+    "bitbank",
+    "bitbay",
+    "bitcoincom",
+    "bitfinex",
+    "bitfinex2",
+    "bitflyer",
+    "bitforex",
+    "bitget",
+    "bithumb",
+    "bitmart",
+    "bitmex",
+    "bitpanda",
+    "bitso",
+    "bitstamp",
+    "bitstamp1",
+    "bittrex",
+    "bitvavo",
+    "bitz",
+    "bl3p",
+    "btcalpha",
+    "btcbox",
+    "btcmarkets",
+    "btctradeua",
+    "btcturk",
+    "bw",
+    "bybit",
+    "bytetrade",
+    "cdax",
+    "cex",
+    "coinbaseprime",
+    "coinbasepro",
+    "coincheck",
+    "coinex",
+    "coinfalcon",
+    "coinfloor",
+    "coinmate",
+    "coinone",
+    "coinspot",
     #'crex24',
-    'currencycom',
-    'delta',
+    "currencycom",
+    "delta",
     #'deribit',  # System maintenance
-    'digifinex',
-    'equos',
-    'exmo',
-    'exx',
-    'ftx',
-    'gateio',
-    'gemini',
-    'gopax',
-    'hbtc',
-    'hitbtc',
-    'hollaex',
-    'huobijp',
-    'huobipro',
-    'idex',
-    'independentreserve',
-    'indodax',
-    'itbit',
-    'kuna',
-    'lbank',
-    'luno',
-    'lykke',
-    'mercado',
-    'mixcoins',
-    'ndax',
-    'novadax',
-    'oceanex',
-    'okcoin',
-    'okex',
-    'okex5',
-    'paymium',
-    'phemex',
-    'poloniex',
-    'probit',
-    'qtrade',
-    'southxchange',
-    'stex',
-    'therock',
-    'tidex',
-    'timex',
-    'upbit',
-    'vcc',
-    'wavesexchange',
-    'whitebit',
-    'xena',
-    'zaif',
-    'zb',
-    'liquid',
-    'timex',
-    'ascendex',
-    'latoken',
-    'kucoin',
-    'kraken',
-    'binance',
-    'dextrade',
-    'indoex'
+    "digifinex",
+    "equos",
+    "exmo",
+    "exx",
+    "ftx",
+    "gateio",
+    "gemini",
+    "gopax",
+    "hbtc",
+    "hitbtc",
+    "hollaex",
+    "huobijp",
+    "huobipro",
+    "idex",
+    "independentreserve",
+    "indodax",
+    "itbit",
+    "kuna",
+    "lbank",
+    "luno",
+    "lykke",
+    "mercado",
+    "mixcoins",
+    "ndax",
+    "novadax",
+    "oceanex",
+    "okcoin",
+    "okex",
+    "okex5",
+    "paymium",
+    "phemex",
+    "poloniex",
+    "probit",
+    "qtrade",
+    "southxchange",
+    "stex",
+    "therock",
+    "tidex",
+    "timex",
+    "upbit",
+    "vcc",
+    "wavesexchange",
+    "whitebit",
+    "xena",
+    "zaif",
+    "zb",
+    "liquid",
+    "timex",
+    "ascendex",
+    "latoken",
+    "kucoin",
+    "kraken",
+    "binance",
+    "dextrade",
+    "indoex",
 ]
 
 
-class CryptonExplore(object):
+class CryptonExplore:
     MIN_ARBITRAGE_PERCENTAGE = 0.5
-    MIN_ARBITRAGE_AMOUNTS = {
-        "USDT": 0.05,
-        "BTC": 0.000002,
-        "ETH": 0.00000233
-    }
+    MIN_ARBITRAGE_AMOUNTS = {"USDT": 0.05, "BTC": 0.000002, "ETH": 0.00000233}
     DEFAULT_FEE = 0.002
 
     def __init__(self, exchange_ids, max_base_rank=500, max_quote_rank=50):
@@ -141,7 +137,13 @@ class CryptonExplore(object):
 
     @property
     def markets(self):
-        all_markets = set([market for exchange in self.exchanges.values() for market in exchange.market_symbols])
+        all_markets = set(
+            [
+                market
+                for exchange in self.exchanges.values()
+                for market in exchange.market_symbols
+            ]
+        )
 
         markets = []
         for market in all_markets:
@@ -188,11 +190,15 @@ class CryptonExplore(object):
         # Need to recalculate the quantity based on the result of the lowest exchange/balance
         if best_ask.base_qty > best_bid.base_qty:
             # The bid exchange is dictating the maximum amount, recalculating the ask exchange using the new qty
-            best_ask.calculate_opportunity(best_bid.first_price_with_fee, max_base_qty=best_bid.base_qty)
+            best_ask.calculate_opportunity(
+                best_bid.first_price_with_fee, max_base_qty=best_bid.base_qty
+            )
 
         elif best_bid.base_qty > best_ask.base_qty:
             # The ask exchange is dictating the maximum amount, recalculating the bid exchange using the new qty
-            best_bid.calculate_opportunity(best_ask.first_price_with_fee, max_base_qty=best_ask.base_qty)
+            best_bid.calculate_opportunity(
+                best_ask.first_price_with_fee, max_base_qty=best_ask.base_qty
+            )
 
     def verify_arbitrage_and_profit(self, best_ask, best_bid):
         """
@@ -208,7 +214,9 @@ class CryptonExplore(object):
             return False, None, None
 
         # Check if the amount or percentage is high enough to take the risk
-        adequate_margin, profit_perc, profit_amount = self.adequate_profit(best_ask, best_bid)
+        adequate_margin, profit_perc, profit_amount = self.adequate_profit(
+            best_ask, best_bid
+        )
         if not adequate_margin:
             return False, None, None
 
@@ -216,8 +224,10 @@ class CryptonExplore(object):
         self.log.info(best_bid)
 
         # Notify about the profit
-        self.log.info(f"Profit margin: {round(profit_perc, 8)}% | "
-                      f"Profit in {best_ask.exchange_market.quote_coin}: {round(profit_amount, 8)}")
+        self.log.info(
+            f"Profit margin: {round(profit_perc, 8)}% | "
+            f"Profit in {best_ask.exchange_market.quote_coin}: {round(profit_amount, 8)}"
+        )
 
         return True, profit_perc, profit_amount
 
@@ -230,17 +240,25 @@ class CryptonExplore(object):
 
         profit_amount = best_bid.quote_qty - best_ask.quote_qty
         quote_coin = best_bid.exchange_market.quote_coin.upper()
-        adequate_margin_amount = profit_amount >= self.MIN_ARBITRAGE_AMOUNTS.get(quote_coin, 0.0)
+        adequate_margin_amount = profit_amount >= self.MIN_ARBITRAGE_AMOUNTS.get(
+            quote_coin, 0.0
+        )
 
         profit_perc = (profit_amount / best_bid.quote_qty) * 100.0
         adequate_margin_perc = profit_perc >= self.MIN_ARBITRAGE_PERCENTAGE
 
-        return (adequate_margin_amount and adequate_margin_perc), profit_perc, profit_amount
+        return (
+            (adequate_margin_amount and adequate_margin_perc),
+            profit_perc,
+            profit_amount,
+        )
 
     def _check_arbitrage(self, exchanges, market):
         timestamp = datetime.datetime.now()
 
-        for best_exchange_asks, best_exchange_bids in self.fetch_orders(exchanges, market):
+        for best_exchange_asks, best_exchange_bids in self.fetch_orders(
+            exchanges, market
+        ):
             best_ask = min(best_exchange_asks, key=lambda x: x.first_price)
             best_bid = max(best_exchange_bids, key=lambda x: x.first_price)
 
@@ -251,20 +269,30 @@ class CryptonExplore(object):
             # Get the total order we can make while there is still arbitrage
             self.get_best_opportunity(best_ask, best_bid)
 
-            arbitrage, profit_perc, profit_amount = self.verify_arbitrage_and_profit(best_ask, best_bid)
+            arbitrage, profit_perc, profit_amount = self.verify_arbitrage_and_profit(
+                best_ask, best_bid
+            )
             if not arbitrage:
                 continue
 
-            self._insert_arbitrage_opportunity(market, best_ask, best_bid, profit_perc, profit_amount, timestamp)
+            self._insert_arbitrage_opportunity(
+                market, best_ask, best_bid, profit_perc, profit_amount, timestamp
+            )
 
     @staticmethod
-    def _insert_arbitrage_opportunity(symbol, ask, bid, profit_perc, profit_amount, timestamp):
+    def _insert_arbitrage_opportunity(
+        symbol, ask, bid, profit_perc, profit_amount, timestamp
+    ):
         data = {
             "market": symbol,
             "ask_exchange": ask.exchange.exchange_id,
             "bid_exchange": bid.exchange.exchange_id,
-            "ask_exchange_asks": [[round(x[0], 8), round(x[1], 8)] for x in ask.order_book],
-            "bid_exchange_bids": [[round(x[0], 8), round(x[1], 8)] for x in bid.order_book],
+            "ask_exchange_asks": [
+                [round(x[0], 8), round(x[1], 8)] for x in ask.order_book
+            ],
+            "bid_exchange_bids": [
+                [round(x[0], 8), round(x[1], 8)] for x in bid.order_book
+            ],
             "profit_perc": profit_perc,
             "profit_amount": profit_amount,
             "ask_first_price": round(ask.first_price, 8),
@@ -281,7 +309,7 @@ class CryptonExplore(object):
             "bid_price_with_fee": round(bid.price_with_fee, 8),
             "bid_base_qty": bid.base_qty,
             "bid_quote_qty": bid.quote_qty,
-            "date": timestamp
+            "date": timestamp,
         }
 
         db.client.arbitrage.insert_one(data)
@@ -289,9 +317,13 @@ class CryptonExplore(object):
     def start(self):
         while True:
             for market in self.markets:
-                exchanges = [x for x in self.exchanges.values() if x.markets.get(market)]
+                exchanges = [
+                    x for x in self.exchanges.values() if x.markets.get(market)
+                ]
                 if len(exchanges) > 1:
-                    self.log.info(f"CHECK {' + '.join([x.exchange_id for x in exchanges])}: {market}")
+                    self.log.info(
+                        f"CHECK {' + '.join([x.exchange_id for x in exchanges])}: {market}"
+                    )
                     self._check_arbitrage(exchanges, market)
 
 
@@ -303,14 +335,22 @@ def get_exchanges_list(exchanges):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-e", "--exchanges", nargs='*', help="Specify exchanges")
-    parser.add_argument("-b", "--maxbaserank", type=int, default=500, help="Maximum base coin rank")
-    parser.add_argument("-q", "--maxquoterank", type=int, default=50, help="Maximum quote coin rank")
+    parser.add_argument("-e", "--exchanges", nargs="*", help="Specify exchanges")
+    parser.add_argument(
+        "-b", "--maxbaserank", type=int, default=500, help="Maximum base coin rank"
+    )
+    parser.add_argument(
+        "-q", "--maxquoterank", type=int, default=50, help="Maximum quote coin rank"
+    )
     args = parser.parse_args()
 
     Notify(filename="explorer", level="info").initiate()
 
     exchange_id_list = get_exchanges_list(args.exchanges)
 
-    bot = CryptonExplore(exchange_id_list, max_base_rank=args.maxbaserank, max_quote_rank=args.maxquoterank)
+    bot = CryptonExplore(
+        exchange_id_list,
+        max_base_rank=args.maxbaserank,
+        max_quote_rank=args.maxquoterank,
+    )
     bot.start()

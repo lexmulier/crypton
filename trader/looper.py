@@ -5,7 +5,11 @@ from log import Notify
 from exchanges import initiate_exchanges
 from trader.trade import CryptonTrade
 from trader.collector import create_collector_instances
-from trader.utils import refresh_exchange_balances, update_local_balances_from_exchanges, upsert_market_pair
+from trader.utils import (
+    refresh_exchange_balances,
+    update_local_balances_from_exchanges,
+    upsert_market_pair,
+)
 from utils import sleep_now
 
 
@@ -30,7 +34,7 @@ class CryptonLooper:
             self.exchange_ids,
             preload_market=self.market,
             exchange_settings=settings["settings"],
-            notifier=self.notifier
+            notifier=self.notifier,
         )
         self.left, self.right = create_collector_instances(self.exchanges, settings)
 
@@ -59,7 +63,9 @@ class CryptonLooper:
                     performance_mode=self.settings.get("performance_mode", False),
                     notifier=self.notifier,
                 )
-                trader.start([self.left.ask, self.right.ask], [self.left.bid, self.right.bid])
+                trader.start(
+                    [self.left.ask, self.right.ask], [self.left.bid, self.right.bid]
+                )
 
                 # Update the balance information with the latest from the exchange
                 if trader.successful is not None:

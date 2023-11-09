@@ -29,9 +29,9 @@ class CcxtAPI(BaseAPI):
         try:
             response = await self.client.fetch_trading_fee(market)
         except (ccxt.NotSupported, ValueError):
-            response = self.client.fees.get('trading', {})
+            response = self.client.fees.get("trading", {})
 
-        if 'maker' not in response or 'taker' not in response:
+        if "maker" not in response or "taker" not in response:
             raise ValueError("API is different than expected: no maker or taker fees")
 
         return response
@@ -50,7 +50,10 @@ class CcxtAPI(BaseAPI):
             pass
 
         elif isinstance(balance_data, dict):
-            balance = {row["asset"]: float(row["free"]) for row in balance_data.get("balances", {})}
+            balance = {
+                row["asset"]: float(row["free"])
+                for row in balance_data.get("balances", {})
+            }
 
         return balance
 
@@ -60,7 +63,9 @@ class CcxtAPI(BaseAPI):
 
     async def create_order(self, symbol, order_type, side, qty, price, params=None):
         params = params if params else {}
-        response = await self.client.create_order(symbol, order_type, side, qty, price, params)
+        response = await self.client.create_order(
+            symbol, order_type, side, qty, price, params
+        )
         return response
 
     async def close(self):

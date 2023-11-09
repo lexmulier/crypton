@@ -21,15 +21,20 @@ async def fetch_and_update_balance(exchange_id, config):
 
     if not balance:
         return
-    
+
     db.client.balance_current.update_one(
         {"exchange": exchange_id},
         {"$set": {f"balance.{coin}": available for coin, available in balance.items()}},
-        upsert=True
+        upsert=True,
     )
     timestamp = datetime.datetime.now()
     history = [
-        {"balance": available, "coin": coin, "exchange": exchange_id, "timestamp": timestamp}
+        {
+            "balance": available,
+            "coin": coin,
+            "exchange": exchange_id,
+            "timestamp": timestamp,
+        }
         for coin, available in balance.items()
     ]
     db.client.balance_history.insert_many(history)
@@ -37,7 +42,10 @@ async def fetch_and_update_balance(exchange_id, config):
 
 def update_balances():
     loop = asyncio.get_event_loop()
-    tasks = [fetch_and_update_balance(exchange_id, config) for exchange_id, config in EXCHANGES.items()]
+    tasks = [
+        fetch_and_update_balance(exchange_id, config)
+        for exchange_id, config in EXCHANGES.items()
+    ]
     loop.run_until_complete(asyncio.gather(*tasks))
 
 

@@ -3,11 +3,11 @@ import requests
 from config import COIN_MARKET_CAP_API_KEY
 
 
-class CoinMarketCapAPI(object):
+class CoinMarketCapAPI:
     _base_url = "https://pro-api.coinmarketcap.com"
     _headers = {
         "X-CMC_PRO_API_KEY": COIN_MARKET_CAP_API_KEY,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
 
     def fetch_coin_info(self):

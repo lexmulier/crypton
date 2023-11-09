@@ -3,7 +3,12 @@ import hashlib
 import hmac
 
 from api.base import BaseAPI, logger
-from messages import APICreateOrderError, APIExchangeOrderId, APICancelOrderError, APIStatusOrderError
+from messages import (
+    APICreateOrderError,
+    APIExchangeOrderId,
+    APICancelOrderError,
+    APIStatusOrderError,
+)
 from utils import exception_logger
 
 
@@ -13,13 +18,13 @@ class BinanceAPI(BaseAPI):
     def __init__(self, *args, **kwargs):
         super(BinanceAPI, self).__init__(*args, **kwargs)
         self._api_key = self.config["apiKey"]
-        self._secret = self.config["secret"].encode('utf-8')
+        self._secret = self.config["secret"].encode("utf-8")
 
     @property
     def _headers(self):
         return {
-            'Content-Type': 'application/json;charset=utf-8',
-            'X-MBX-APIKEY': self._api_key
+            "Content-Type": "application/json;charset=utf-8",
+            "X-MBX-APIKEY": self._api_key,
         }
 
     @exception_logger()
@@ -39,16 +44,18 @@ class BinanceAPI(BaseAPI):
                 if filter_row["filterType"] == "MIN_NOTIONAL":
                     min_quote_qty = float(filter_row["minNotional"])
 
-            markets.append({
-                "symbol": f"{market['baseAsset']}/{market['quoteAsset']}",
-                "base": market["baseAsset"],
-                "quote": market["quoteAsset"],
-                "min_base_qty": min_base_qty,
-                "min_quote_qty": min_quote_qty,
-                "base_precision": base_precision,
-                "quote_precision": int(market["quoteAssetPrecision"]),
-                "price_precision": int(market["quotePrecision"]),
-            })
+            markets.append(
+                {
+                    "symbol": f"{market['baseAsset']}/{market['quoteAsset']}",
+                    "base": market["baseAsset"],
+                    "quote": market["quoteAsset"],
+                    "min_base_qty": min_base_qty,
+                    "min_quote_qty": min_quote_qty,
+                    "base_precision": base_precision,
+                    "quote_precision": int(market["quoteAssetPrecision"]),
+                    "price_precision": int(market["quotePrecision"]),
+                }
+            )
         return markets
 
     @exception_logger()
@@ -56,10 +63,7 @@ class BinanceAPI(BaseAPI):
         endpoint = "/api/v3/account"
         url = self._get_request_url(endpoint, timestamp=self._nonce())
         response = await self.async_get(url, headers=self._headers)
-        return {
-            row["asset"]: float(row["free"])
-            for row in response["balances"]
-        }
+        return {row["asset"]: float(row["free"]) for row in response["balances"]}
 
     @exception_logger()
     async def fetch_fees(self, symbol):
@@ -70,7 +74,7 @@ class BinanceAPI(BaseAPI):
 
         return {
             "taker": float(response[0]["takerCommission"]),
-            "maker": float(response[0]["makerCommission"])
+            "maker": float(response[0]["makerCommission"]),
         }
 
     @exception_logger()
@@ -109,14 +113,16 @@ class BinanceAPI(BaseAPI):
             "quantity": qty,
             "price": price,
             "newClientOrderId": str(_id),
-            "timestamp": int(nonce)
+            "timestamp": int(nonce),
         }
 
         url = self._get_request_url(endpoint, data=data)
         response = await self.async_post(url, headers=self._headers)
 
         if response.get("code"):
-            msg = APICreateOrderError(self.exchange_id, self.__class__.__name__, side, response)
+            msg = APICreateOrderError(
+                self.exchange_id, self.__class__.__name__, side, response
+            )
             self.notifier.add(logger, msg, now=True, log_level="exception")
             return False, response
 
@@ -130,13 +136,15 @@ class BinanceAPI(BaseAPI):
         data = {
             "symbol": symbol.replace("/", ""),
             "origClientOrderId": order_id,
-            "timestamp": int(self._nonce())
+            "timestamp": int(self._nonce()),
         }
         url = self._get_request_url(endpoint, data=data)
         response = await self.async_delete(url, headers=self._headers)
 
         if response.get("code"):
-            msg = APICancelOrderError(self.exchange_id, self.__class__.__name__, response)
+            msg = APICancelOrderError(
+                self.exchange_id, self.__class__.__name__, response
+            )
             self.notifier.add(logger, msg, now=True, log_level="exception")
             return False
 
@@ -148,13 +156,15 @@ class BinanceAPI(BaseAPI):
         data = {
             "symbol": symbol.replace("/", ""),
             "origClientOrderId": order_id,
-            "timestamp": int(self._nonce())
+            "timestamp": int(self._nonce()),
         }
         url = self._get_request_url(endpoint, data=data)
         response = await self.async_get(url, headers=self._headers)
 
         if response.get("code"):
-            msg = APIStatusOrderError(self.exchange_id, self.__class__.__name__, response)
+            msg = APIStatusOrderError(
+                self.exchange_id, self.__class__.__name__, response
+            )
             self.notifier.add(logger, msg, now=True, log_level="exception")
             return
 
@@ -164,16 +174,13 @@ class BinanceAPI(BaseAPI):
             "base_quantity": float(response["origQty"]),
             "timestamp": datetime.datetime.fromtimestamp(response["time"] / 1000.0),
             "filled": filled,
-            "fee": None
+            "fee": None,
         }
 
     @exception_logger()
     async def fetch_order_history(self, symbol=None):
         endpoint = "/api/v3/allOrders"
-        data = {
-            "symbol": symbol.replace("/", ""),
-            "timestamp": int(self._nonce())
-        }
+        data = {"symbol": symbol.replace("/", ""), "timestamp": int(self._nonce())}
         url = self._get_request_url(endpoint, data=data)
         response = await self.async_get(url, headers=self._headers)
         return response
@@ -184,12 +191,14 @@ class BinanceAPI(BaseAPI):
             query_string = self._get_params_for_sig(data)
 
         if timestamp is not None and query_string:
-            query_string = f'{query_string}&timestamp={timestamp}'
+            query_string = f"{query_string}&timestamp={timestamp}"
         elif timestamp is not None and not query_string:
-            query_string = f'timestamp={timestamp}'
+            query_string = f"timestamp={timestamp}"
 
         if signature:
-            sig = hmac.new(self._secret, query_string.encode('utf-8'), hashlib.sha256).hexdigest()
+            sig = hmac.new(
+                self._secret, query_string.encode("utf-8"), hashlib.sha256
+            ).hexdigest()
             return f"{self._base_url}{endpoint}?{query_string}&signature={sig}"
         else:
             return f"{self._base_url}{endpoint}?{query_string}"

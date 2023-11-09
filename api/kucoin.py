@@ -31,7 +31,7 @@ class KuCoinAPI(BaseAPI):
                 "min_quote_qty": float(x["quoteMinSize"]),
                 "base_precision": self._precision(x["baseIncrement"]),
                 "quote_precision": self._precision(x["baseIncrement"]),
-                "price_precision": self._precision(x["priceIncrement"])
+                "price_precision": self._precision(x["priceIncrement"]),
             }
             for x in response["data"]
         ]
@@ -60,7 +60,7 @@ class KuCoinAPI(BaseAPI):
         response = await self.async_get(url, headers=headers)
         return {
             "taker": float(response["data"][0]["takerFeeRate"]),
-            "maker": float(response["data"][0]["makerFeeRate"])
+            "maker": float(response["data"][0]["makerFeeRate"]),
         }
 
     @exception_logger()
@@ -96,8 +96,10 @@ class KuCoinAPI(BaseAPI):
 
         response = await self.async_post(url, data=compact_data, headers=headers)
 
-        if response.get('code') != '200000':
-            msg = APICreateOrderError(self.exchange_id, self.__class__.__name__, side, response)
+        if response.get("code") != "200000":
+            msg = APICreateOrderError(
+                self.exchange_id, self.__class__.__name__, side, response
+            )
             self.notifier.add(logger, msg, now=True, log_level="exception")
             return False, response
 
@@ -112,8 +114,10 @@ class KuCoinAPI(BaseAPI):
         headers = self._get_headers(endpoint, method="DELETE")
         response = await self.async_delete(url, headers=headers)
 
-        if response.get('code') != '200000':
-            msg = APICancelOrderError(self.exchange_id, self.__class__.__name__, response)
+        if response.get("code") != "200000":
+            msg = APICancelOrderError(
+                self.exchange_id, self.__class__.__name__, response
+            )
             self.notifier.add(logger, msg, now=True, log_level="exception")
             return False
 
@@ -130,8 +134,11 @@ class KuCoinAPI(BaseAPI):
             "price": float(response["data"]["price"]),
             "base_quantity": float(response["data"]["size"]),
             "fee": float(response["data"]["fee"]),
-            "timestamp": datetime.datetime.fromtimestamp(response["data"]["createdAt"] / 1000.0),
-            "filled": not response["data"]["isActive"] and not response["data"]["cancelExist"]
+            "timestamp": datetime.datetime.fromtimestamp(
+                response["data"]["createdAt"] / 1000.0
+            ),
+            "filled": not response["data"]["isActive"]
+            and not response["data"]["cancelExist"],
         }
 
         return data
@@ -142,7 +149,9 @@ class KuCoinAPI(BaseAPI):
             hmac.new(self._secret, self._password, hashlib.sha256).digest()
         ).decode()
 
-    def _generate_signature(self, nonce, method, endpoint, data=None, compact_data=None):
+    def _generate_signature(
+        self, nonce, method, endpoint, data=None, compact_data=None
+    ):
         data_json = ""
         if method == "GET" and data:
             query_string = self._get_params_for_sig(data)
@@ -151,16 +160,18 @@ class KuCoinAPI(BaseAPI):
             data_json = compact_data
         elif method == "POST" and data:
             data_json = self._compact_json_dict(data)
-        sig_str = f"{nonce}{method.upper()}{endpoint}{data_json}".encode('utf-8')
+        sig_str = f"{nonce}{method.upper()}{endpoint}{data_json}".encode("utf-8")
         m = hmac.new(self._secret, sig_str, hashlib.sha256)
         return base64.b64encode(m.digest()).decode()
 
     def _get_headers(self, endpoint, method="GET", data=None, compact_data=None):
         nonce = self._nonce()
         return {
-            "KC-API-SIGN": self._generate_signature(nonce, method, endpoint, data=data, compact_data=compact_data),
+            "KC-API-SIGN": self._generate_signature(
+                nonce, method, endpoint, data=data, compact_data=compact_data
+            ),
             "KC-API-TIMESTAMP": nonce,
             "KC-API-KEY": self._api_key,
             "KC-API-PASSPHRASE": self._encoded_passphrase,
-            "KC-API-KEY-VERSION": "2"
+            "KC-API-KEY-VERSION": "2",
         }

@@ -4,16 +4,44 @@ import hmac
 import datetime
 
 from api.base import BaseAPI, logger
-from messages import APICreateOrderError, APIExchangeOrderId, APICancelOrderError, APIStatusOrderError
+from messages import (
+    APICreateOrderError,
+    APIExchangeOrderId,
+    APICancelOrderError,
+    APIStatusOrderError,
+)
 from utils import exception_logger
 
 
 class AscendexAPI(BaseAPI):
-
     _big_coins = [
-        'BTC', 'ETH', 'XRP', 'USDT', 'BCH', 'LTC', 'EOS', 'BNB', 'BSV',
-        'TRX', 'LINK', 'HT', 'OKB', 'ATOM', 'DASH', 'ETC', 'NEO', 'XEM',
-        'FIL', 'UNI', 'FTT', 'ADA', 'ALGO', 'ZEC', 'DOT', 'XLM', 'DOGE'
+        "BTC",
+        "ETH",
+        "XRP",
+        "USDT",
+        "BCH",
+        "LTC",
+        "EOS",
+        "BNB",
+        "BSV",
+        "TRX",
+        "LINK",
+        "HT",
+        "OKB",
+        "ATOM",
+        "DASH",
+        "ETC",
+        "NEO",
+        "XEM",
+        "FIL",
+        "UNI",
+        "FTT",
+        "ADA",
+        "ALGO",
+        "ZEC",
+        "DOT",
+        "XLM",
+        "DOGE",
     ]
     _base_url = "https://ascendex.com"
     _private_base_url = "https://ascendex.com/6"
@@ -35,7 +63,7 @@ class AscendexAPI(BaseAPI):
                 "quote": x["quoteAsset"],
                 "min_quote_qty": float(x["minNotional"]),
                 "base_precision": self._precision(x["lotSize"]),
-                "price_precision": self._precision(x["tickSize"])
+                "price_precision": self._precision(x["tickSize"]),
             }
             for x in response["data"]
         ]
@@ -46,7 +74,9 @@ class AscendexAPI(BaseAPI):
         url = self._private_base_url + "/api/pro/v1/cash/balance"
         headers = self._get_headers("balance", self._nonce())
         response = await self.async_get(url, headers=headers)
-        return {row["asset"]: float(row["availableBalance"]) for row in response["data"]}
+        return {
+            row["asset"]: float(row["availableBalance"]) for row in response["data"]
+        }
 
     @exception_logger()
     async def fetch_order_book(self, symbol, **kwargs):
@@ -66,7 +96,7 @@ class AscendexAPI(BaseAPI):
 
     @exception_logger()
     async def fetch_fees(self, symbol):
-        if symbol.split('/')[0] in self._big_coins:
+        if symbol.split("/")[0] in self._big_coins:
             fee = 0.001
         else:
             fee = 0.002
@@ -88,8 +118,10 @@ class AscendexAPI(BaseAPI):
         url = f"{self._private_base_url}/api/pro/v1/cash/order/status?orderId={str(order_id)}"
         response = await self.async_get(url, headers=headers)
 
-        if response.get('code', 0) != 0:
-            msg = APIStatusOrderError(self.exchange_id, self.__class__.__name__, response)
+        if response.get("code", 0) != 0:
+            msg = APIStatusOrderError(
+                self.exchange_id, self.__class__.__name__, response
+            )
             self.notifier.add(logger, msg, now=True, log_level="exception")
             return
 
@@ -97,8 +129,10 @@ class AscendexAPI(BaseAPI):
             "price": float(response["data"]["price"]),
             "base_quantity": float(response["data"]["orderQty"]),
             "fee": float(response["data"]["cumFee"]),
-            "timestamp": datetime.datetime.fromtimestamp(response["data"]["lastExecTime"] / 1000.0),
-            "filled": response["data"]["status"] == "Filled"
+            "timestamp": datetime.datetime.fromtimestamp(
+                response["data"]["lastExecTime"] / 1000.0
+            ),
+            "filled": response["data"]["status"] == "Filled",
         }
 
         return data
@@ -124,7 +158,7 @@ class AscendexAPI(BaseAPI):
             "orderQty": str(qty),
             "orderType": "limit",
             "side": side,
-            "timeInForce": "IOC"
+            "timeInForce": "IOC",
         }
 
         compact_data = self._compact_json_dict(data)
@@ -132,13 +166,17 @@ class AscendexAPI(BaseAPI):
 
         response = await self.async_post(url, compact_data, headers=headers)
 
-        if response.get('code', 0) != 0:
-            msg = APICreateOrderError(self.exchange_id, self.__class__.__name__, side, response)
+        if response.get("code", 0) != 0:
+            msg = APICreateOrderError(
+                self.exchange_id, self.__class__.__name__, side, response
+            )
             self.notifier.add(logger, msg, now=True, log_level="exception")
             return False, response
 
         exchange_order_id = response["data"]["info"]["orderId"]
-        self.notifier.add(logger, APIExchangeOrderId(self.exchange_id, exchange_order_id))
+        self.notifier.add(
+            logger, APIExchangeOrderId(self.exchange_id, exchange_order_id)
+        )
 
         return True, exchange_order_id
 
@@ -146,24 +184,24 @@ class AscendexAPI(BaseAPI):
     async def cancel_order(self, order_id, symbol=None, *args, **kwargs):
         url = self._private_base_url + "/api/pro/v1/cash/order"
         nonce = self._nonce()
-        data = {
-            "orderId": order_id,
-            "symbol": symbol,
-            "time": nonce
-        }
+        data = {"orderId": order_id, "symbol": symbol, "time": nonce}
         compact_data = self._compact_json_dict(data)
         headers = self._get_headers("order", nonce)
         response = await self.async_delete(url, data=compact_data, headers=headers)
 
-        if response.get('code', 0) != 0:
-            msg = APICancelOrderError(self.exchange_id, self.__class__.__name__, response)
+        if response.get("code", 0) != 0:
+            msg = APICancelOrderError(
+                self.exchange_id, self.__class__.__name__, response
+            )
             self.notifier.add(logger, msg, now=True, log_level="exception")
             return response
 
-        return response['data']['status'] == 'Ack'
+        return response["data"]["status"] == "Ack"
 
     def _create_order_id(self, _id, nonce, source="a"):
-        return (source + format(int(nonce), 'x')[-11:] + self._uuid[-11:] + str(_id)[-9:])[:32]
+        return (
+            source + format(int(nonce), "x")[-11:] + self._uuid[-11:] + str(_id)[-9:]
+        )[:32]
 
     @staticmethod
     def _generate_signature(nonce, endpoint, secret):

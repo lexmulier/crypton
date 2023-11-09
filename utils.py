@@ -16,7 +16,7 @@ def rounder(value, precision=15, strip=True):
     if value is None:
         return
 
-    rounded_value = format(round_down(value, precision), f'.{precision}f')
+    rounded_value = format(round_down(value, precision), f".{precision}f")
 
     if strip:
         return rounded_value.rstrip("0").rstrip(".")
@@ -27,7 +27,6 @@ def rounder(value, precision=15, strip=True):
 def exception_logger():
     def decorator(func):
         def decorated_function(*args, **kwargs):
-
             try:
                 return func(*args, **kwargs)
             except Exception as error:
@@ -38,4 +37,3 @@ def exception_logger():
         return decorated_function
 
     return decorator
-
